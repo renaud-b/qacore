@@ -57,7 +57,8 @@ function renderAllMissions() {
     });
 }
 
-window.addEventListener('DOMContentLoaded', function () {
+let eventManager = new EventManager((data) => {
+    console.log("user address: ", data.address)
     const container = document.getElementById('filters');
     createFilterButtons(container);
 
