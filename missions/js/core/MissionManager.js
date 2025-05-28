@@ -7,7 +7,7 @@ const MissionManager = {
                 if(MissionManager.eventManager == null){
                     MissionManager.eventManager.signWithoutGas(userAddress, encodedMission).then((encodedUserTx) => {
                         Wormhole.executeContract(MissionContractID, "AcceptMission", {encodedUserTx: encodedUserTx}).then((response) => {
-                            console.log("response", response);
+                            resolve(response)
                         })
                     })
                 }

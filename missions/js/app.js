@@ -47,25 +47,26 @@ function getFilterButtonClass(status, active) {
 
 let allMissions = [];
 
-function renderAllMissions() {
+function renderAllMissions(userAddress) {
     const container = document.getElementById('mission-list');
     container.innerHTML = '';
     allMissions.forEach(mission => {
         if (activeFilters.size === 0 || activeFilters.has(mission["mission-status"])) {
-            UIManager.renderMission(mission, container);
+            UIManager.renderMission(mission, container, userAddress);
         }
     });
 }
 
 let eventManager = new EventManager((data) => {
     console.log("user address: ", data.address)
+    MissionManager.eventManager = eventManager;
     const container = document.getElementById('filters');
     createFilterButtons(container);
 
     Blackhole.getGraph(MissionGraphID, 'https://utopixia.com')
         .then(graph => {
             allMissions = graph.children().map(m => m.object);
-            renderAllMissions();
+            renderAllMissions(data.address);
         })
         .catch(error => {
             console.error("Error loading graph:", error);

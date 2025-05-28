@@ -1,10 +1,10 @@
 const UIManager = {
-    renderMission: function(mission, container) {
+    renderMission: function(mission, container, userAddress) {
         const statusMap = {
             "available": {
                 label: "Disponible",
                 color: "green",
-                button: `<button class="px-4 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">Accepter</button>`
+                button: `<button id="accept-mission" class="px-4 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">Accepter</button>`
             },
             "in_progress": {
                 label: "En cours",
@@ -43,5 +43,13 @@ const UIManager = {
     `;
 
         container.insertAdjacentHTML('beforeend', html);
+        const acceptButton = container.querySelector("#accept-mission");
+        if (acceptButton) {
+            acceptButton.addEventListener("click", () => {
+                MissionManager.Contract.acceptMission(mission.id, userAddress).then((e) => {
+                    console.log("mission accepted")
+                })
+            });
+        }
     }
 }
