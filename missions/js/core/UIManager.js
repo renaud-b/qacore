@@ -41,15 +41,20 @@ const UIManager = {
         </div>
       </div>
     `;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const acceptButton = wrapper.querySelector('#accept-mission');
 
-        container.insertAdjacentHTML('beforeend', html);
-        const acceptButton = container.querySelector("#accept-mission");
         if (acceptButton) {
+            console.log("accept button found for mission:", mission.id);
             acceptButton.addEventListener("click", () => {
-                MissionManager.Contract.acceptMission(mission.id, userAddress).then((e) => {
-                    console.log("mission accepted")
-                })
+                console.log("accepting mission:", mission.id, "for user:", userAddress);
+                MissionManager.Contract.acceptMission(mission.id, userAddress).then(() => {
+                    console.log("mission accepted");
+                });
             });
         }
+
+        container.appendChild(wrapper);
     }
 }
