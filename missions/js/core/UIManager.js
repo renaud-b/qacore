@@ -43,28 +43,23 @@ const UIManager = {
         const status =
             statusMap[mission["mission-status"]] || statusMap["available"];
         const html = `
-      <div class="bg-white shadow rounded p-4 border-l-4 border-${
-            status.color
+      <div class="bg-white shadow rounded p-4 border-l-4 border-${status.color
         }-500">
         <div class="flex justify-between items-start">
           <div>
-            <h2 class="text-xl font-bold text-gray-800">${mission.name} – ${
-            mission["mission-title"]
+            <h2 class="text-xl font-bold text-gray-800">${mission.name} – ${mission["mission-title"]
         }</h2>
             <p class="text-sm text-gray-600 mb-2">${convertAccentsToHtmlCodes(
             mission["mission-description"]
         )}</p>
-            <p class="text-xs text-gray-500 italic">Objectif : ${
-            mission["mission-objective"]
+            <p class="text-xs text-gray-500 italic">Objectif : ${mission["mission-objective"]
         }</p>
           </div>
-          <span class="text-xs bg-${status.color}-100 text-${
-            status.color
+          <span class="text-xs bg-${status.color}-100 text-${status.color
         }-700 px-2 py-1 rounded-full">${status.label}</span>
         </div>
         <div class="mt-4 flex justify-between items-center">
-          <span class="text-sm text-gray-700">🎁 Récompense : <strong>${
-            mission["mission-xp_reward"]
+          <span class="text-sm text-gray-700">🎁 Récompense : <strong>${mission["mission-xp_reward"]
         } XP</strong></span>
           ${status.button}
         </div>
@@ -95,4 +90,38 @@ const UIManager = {
         }
         container.appendChild(wrapper);
     },
+    showCompletionModal: function (missionName, gainedXP = 0) {
+        const profile = getUserProfile();
+        profile.xp += gainedXP;
+
+        // Vérifie si on monte de niveau
+        const base = 100;
+        let levelUp = false;
+        while (profile.xp >= base * profile.level) {
+            profile.xp -= base * profile.level;
+            profile.level++;
+            levelUp = true;
+        }
+
+        saveUserProfile(profile);
+        const progress = computeXPProgress(profile);
+
+        document.getElementById("completion-modal-text").textContent =
+            `🎉 La mission "${missionName}" a été validée !`;
+        document.getElementById("completion-xp-gain").textContent = `+${gainedXP} XP`;
+        document.getElementById("completion-level").textContent = `Niveau ${profile.level}`;
+
+        const xpBar = document.getElementById("completion-xp-bar");
+        xpBar.style.width = `${progress.percentage}%`;
+        xpBar.textContent = `${progress.percentage}%`;
+
+        document.getElementById("completion-modal").classList.remove("hidden");
+    },
+
+
+    hideCompletionModal: function () {
+        const modal = document.getElementById("completion-modal");
+        modal.classList.add("hidden");
+    }
+
 };

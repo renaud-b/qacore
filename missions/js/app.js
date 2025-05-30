@@ -1,3 +1,5 @@
+
+
 const MissionGraphID = "8b714ab9-3aa7-469e-bd20-ad788369cea6";
 const statusColors = {
     available: "green",
@@ -5,6 +7,7 @@ const statusColors = {
     submitted: "blue",
     completed: "gray",
 };
+let previousStatuses = {};
 let activeFilters = new Set();
 function createFilterButtons(container) {
     const statuses = Object.keys(statusColors);
@@ -42,7 +45,9 @@ let allMissions = [];
 function renderAllMissions(userAddress) {
     const container = document.getElementById("mission-list");
     container.innerHTML = "";
+    previousStatuses = {};
     allMissions.forEach((mission) => {
+        previousStatuses[mission.id] = mission["mission-status"];
         if (
             activeFilters.size === 0 ||
             activeFilters.has(mission["mission-status"])
@@ -65,12 +70,32 @@ let eventManager = new EventManager((data) => {
                     tx.data.indexOf("urn:pi:graph:action:" + MissionGraphID + ":") !== -1
                 ) {
                     console.log("start to rerender missions");
-                    Blackhole.getGraph(MissionGraphID, "https://utopixia.com").then(
-                        (graph) => {
-                            allMissions = graph.children().map((m) => m.object);
-                            renderAllMissions(data.address);
-                        }
-                    );
+                    Blackhole.getGraph(MissionGraphID, "https://utopixia.com").then((graph) => {
+                        const newMissions = graph.children().map((m) => m.object);
+
+                        // Compare anciens statuts et nouveaux
+                        newMissions.forEach(mission => {
+                            const oldStatus = previousStatuses[mission.id];
+                            const newStatus = mission["mission-status"];
+                            const assignedTo = mission["mission-assigned_to"];
+                            if (oldStatus !== newStatus) {
+                                previousStatuses[mission.id] = newStatus;
+                                console.log("find resolved mission")
+                                if (
+                                    newStatus === "completed" &&
+                                    assignedTo === data.address // on ne notifie que l'utilisateur courant
+                                ) {
+                                    console.log("show completion modal")
+                                    UIManager.showCompletionModal(mission.name, parseInt(mission["mission-xp_reward"] || 0));
+                                }
+                            }
+                        });
+
+
+
+                        allMissions = newMissions;
+                        renderAllMissions(data.address);
+                    });
                 }
             }, 1000);
         })
