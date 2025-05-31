@@ -69,9 +69,7 @@ const UIManager = {
         wrapper.innerHTML = html;
         const acceptButton = wrapper.querySelector("#accept-mission");
         if (acceptButton) {
-            console.log("accept button found for mission:", mission.id);
             acceptButton.addEventListener("click", () => {
-                console.log("accepting mission:", mission.id, "for user:", userAddress);
                 const previousContent = acceptButton.textContent;
                 acceptButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 MissionManager.Contract.acceptMission(mission.id, userAddress).then(
@@ -90,38 +88,46 @@ const UIManager = {
         }
         container.appendChild(wrapper);
     },
-    showCompletionModal: function (missionName, gainedXP = 0) {
-        const profile = getUserProfile();
-        profile.xp += gainedXP;
+    showCompletionModal: function (userAddress, missionName, gainedXP = 0) {
+        UserProfile.getProfile(userAddress).then((profile) => {
 
-        // Vérifie si on monte de niveau
-        const base = 100;
-        let levelUp = false;
-        while (profile.xp >= base * profile.level) {
-            profile.xp -= base * profile.level;
-            profile.level++;
-            levelUp = true;
-        }
+            profile.xp += gainedXP;
 
-        saveUserProfile(profile);
-        const progress = computeXPProgress(profile);
+            // Vérifie si on monte de niveau
+            const base = 100;
+            let levelUp = false;
+            while (profile.xp >= base * profile.level) {
+                profile.xp -= base * profile.level;
+                profile.level++;
+                levelUp = true;
+            }
 
-        document.getElementById("completion-modal-text").textContent =
-            `🎉 La mission "${missionName}" a été validée !`;
-        document.getElementById("completion-xp-gain").textContent = `+${gainedXP} XP`;
-        document.getElementById("completion-level").textContent = `Niveau ${profile.level}`;
+            const progress = UIManager.computeXPProgress(profile.xp, profile.level);
 
-        const xpBar = document.getElementById("completion-xp-bar");
-        xpBar.style.width = `${progress.percentage}%`;
-        xpBar.textContent = `${progress.percentage}%`;
+            document.getElementById("completion-modal-text").textContent =
+                `🎉 La mission "${missionName}" a été validée !`;
+            document.getElementById("completion-xp-gain").textContent = `+${gainedXP} XP`;
+            document.getElementById("completion-level").textContent = `Niveau ${profile.level}`;
 
-        document.getElementById("completion-modal").classList.remove("hidden");
+            const xpBar = document.getElementById("completion-xp-bar");
+            xpBar.style.width = `${progress.percentage}%`;
+            xpBar.textContent = `${progress.percentage}%`;
+
+            document.getElementById("completion-modal").classList.remove("hidden");
+        })
     },
 
 
     hideCompletionModal: function () {
         const modal = document.getElementById("completion-modal");
         modal.classList.add("hidden");
+    },
+
+    computeXPProgress: function (xp, level) {
+        const base = 100;
+        const requiredXP = base * level;
+        const percentage = Math.min(100, Math.floor((xp / requiredXP) * 100));
+        return { requiredXP, percentage };
     }
 
 };

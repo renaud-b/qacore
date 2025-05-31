@@ -1,15 +1,36 @@
-function getUserProfile() {
-    const profile = JSON.parse(localStorage.getItem("qa_user_profile") || '{"level":1,"xp":0}');
-    return profile;
-}
+const UserProfileContractID = "31b3ad10-6d3f-4a8e-acd8-fdfd41ef72bc";
 
-function saveUserProfile(profile) {
-    localStorage.setItem("qa_user_profile", JSON.stringify(profile));
+class Profile {
+    constructor(userProfileNode) {
+        this.xp = userProfileNode["profile-xp"]
+        this.level = userProfileNode["profile-level"]
+    }
 }
+const UserProfile = {
+    getProfile(address) {
+        return new Promise((resolve, reject) => {
+            Wormhole.executeContract(UserProfileContractID, 'GetUserProfile', {address:address})
+                .then((response) => {
+                    console.log("response: ", response)
+                    if (response.status !== "ok") {
+                        console.error("unable to get user profile", response)
+                        reject(response)
+                        return
+                    }
+                    resolve(new Profile(response.profile))
 
-function computeXPProgress(profile) {
-    const base = 100;
-    const requiredXP = base * profile.level;
-    const percentage = Math.min(100, Math.floor((profile.xp / requiredXP) * 100));
-    return { requiredXP, percentage };
-}
+                })
+                .catch(reject)
+        })
+
+    },
+
+    finishMission(address, xp) {
+        return new Promise((resolve, reject) => {
+            Wormhole.executeContract(UserProfileContractID, 'GetUserProfile', {address:address})
+                .then(res => res.json())
+                .then(resolve)
+                .catch(reject);
+        })
+    }
+};

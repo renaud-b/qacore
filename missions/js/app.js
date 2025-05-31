@@ -61,7 +61,7 @@ let eventManager = new EventManager((data) => {
     MissionManager.eventManager = eventManager;
     const container = document.getElementById("filters");
     createFilterButtons(container);
-    Blackhole.getGraph(MissionGraphID, "https://utopixia.com")
+    Blackhole.getGraph(MissionGraphID)
         .then((graph) => {
             allMissions = graph.children().map((m) => m.object);
             renderAllMissions(data.address);
@@ -70,7 +70,7 @@ let eventManager = new EventManager((data) => {
                     tx.data.indexOf("urn:pi:graph:action:" + MissionGraphID + ":") !== -1
                 ) {
                     console.log("start to rerender missions");
-                    Blackhole.getGraph(MissionGraphID, "https://utopixia.com").then((graph) => {
+                    Blackhole.getGraph(MissionGraphID).then((graph) => {
                         const newMissions = graph.children().map((m) => m.object);
 
                         // Compare anciens statuts et nouveaux
@@ -86,7 +86,7 @@ let eventManager = new EventManager((data) => {
                                     assignedTo === data.address // on ne notifie que l'utilisateur courant
                                 ) {
                                     console.log("show completion modal")
-                                    UIManager.showCompletionModal(mission.name, parseInt(mission["mission-xp_reward"] || 0));
+                                    UIManager.showCompletionModal(data.address, mission.name, parseInt(mission["mission-xp_reward"] || 0));
                                 }
                             }
                         });
