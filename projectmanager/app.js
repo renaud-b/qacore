@@ -1,9 +1,11 @@
 const MissionGraphID = "8b714ab9-3aa7-469e-bd20-ad788369cea6";
 
+let userAddress = null
 const eventManager = new EventManager((data) => {
     if (!data.address) {
         return;
     }
+    userAddress = data.address
     Blackhole.getGraph(MissionGraphID).then((graph) => {
         const missions = graph.children().map((n) => n.object);
         const submitted = missions.filter(
@@ -46,8 +48,6 @@ const eventManager = new EventManager((data) => {
         document.getElementById("modal-create-mission").classList.remove("hidden");
     };
 });
-function validateMission() { }
-
 function saveMissionEdit() {
     const id = document.getElementById("edit-mission-id").value;
     const title = convertAccentsToHtmlCodes(
@@ -98,19 +98,12 @@ function editMission(id, title, desc, obj, xp) {
     document.getElementById("edit-mission-xp").value = xp;
     document.getElementById("modal-edit-mission").classList.remove("hidden");
 }
-function fakeEditMission() {
-    editMission(
-        "mission_alpha",
-        "Mission Alpha",
-        "Tester...",
-        "Reproduire bug",
-        50
-    );
-}
 
 function confirmMissionValidation() {
-    const missionID = document.getElementById("mission-id")
-    console.log("missionID: ", missionID.innerText)
+    const missionID = document.getElementById("mission-id").innerText
+    console.log("missionID: ", missionID)
+
+    MissionStore.completeMission(eventManager, userAddress, missionID)
 }
 
 function openValidationModal(mission) {

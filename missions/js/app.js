@@ -1,189 +1,137 @@
-function openMissionViewModal(missionID, userAddress) {
-    Blackhole.getGraph("8b714ab9-3aa7-469e-bd20-ad788369cea6").then((g) => {
-        g.children().forEach((child) => {
-            console.log("missionID: ", missionID, "child id: ", child.object.id);
-            if (child.object.id != missionID) {
-                return;
+const MissionGraphID = "8b714ab9-3aa7-469e-bd20-ad788369cea6";
+const statusColors = {
+    available: "green",
+    in_progress: "yellow",
+    submitted: "blue",
+    completed: "gray",
+};
+let previousStatuses = {};
+let activeFilters = new Set();
+function createFilterButtons(container) {
+    const statuses = Object.keys(statusColors);
+    const filterBar = document.createElement("div");
+    filterBar.className = "flex gap-2 mb-6 justify-center flex-wrap";
+    statuses.forEach((status) => {
+        const btn = document.createElement("button");
+        btn.textContent = status.replace("_", " ").toUpperCase();
+        btn.dataset.status = status;
+        btn.className = getFilterButtonClass(status, false);
+        btn.addEventListener("click", () => {
+            if (activeFilters.has(status)) {
+                activeFilters.delete(status);
+                btn.className = getFilterButtonClass(status, false);
+            } else {
+                activeFilters.add(status);
+                btn.className = getFilterButtonClass(status, true);
             }
-            const mission = child.object;
-            document.getElementById("view-mission-id").textContent = missionID;
-            document.getElementById("view-mission-title").textContent =
-                convertHtmlCodesToAccents(mission["mission-title"]);
-            document.getElementById("view-mission-obj").textContent =
-                convertHtmlCodesToAccents(mission["mission-objective"]);
-            document.getElementById("view-mission-desc").textContent =
-                convertHtmlCodesToAccents(mission["mission-description"]);
-            document.getElementById(
-                "view-mission-xp"
-            ).textContent = `${mission["mission-xp_reward"]} XP`;
-            document.getElementById("mission-comment").value = "";
-            Wormhole.executeContract(
-                "dbcefa4c-54f4-45b5-8e4c-03ca73123beb",
-                "GetReportsForUser",
-                { userAddress: userAddress }
-            ).then((response) => {
-                const tableBody = document.getElementById("view-report-table");
-                tableBody.innerHTML = "";
-                response.reports.forEach((report) => {
-                    const reportName = report.name.split("___")[0];
-                    const row = document.createElement("tr");
-                    const formattedReport = Object.keys(report)
-                        .filter((key) => {
-                            return key.indexOf("report-") === 0;
-                        })
-                        .map((key) => {
-                            return key.replace("report-", "") + ": " + report[key];
-                        })
-                        .join("\n");
-                    row.innerHTML = `
-                <td class="px-3 py-2 font-medium text-gray-700"><input name="selected-report" value="${report.id}" type="radio"/></td>
-                <td class="px-3 py-2 font-medium text-gray-700">${reportName}</td>
-                <td class="px-3 py-2 text-gray-600 whitespace-pre-line text-xs font-mono">${formattedReport}</td>
-            `;
-                    tableBody.appendChild(row);
-                });
-            });
-            document.getElementById("modal-view-mission").classList.remove("hidden");
+            renderAllMissions();
         });
+        filterBar.appendChild(btn);
+    });
+    container.prepend(filterBar);
+}
+function validateMission() {
+    console.log("start to validate mission");
+    const missionID = document.getElementById("view-mission-id").textContent;
+    console.log("start to validate mission with id : ", missionID);
+    document.getElementById("modal-view-mission").classList.add("hidden");
+    const originalHTML = document.getElementById(
+        `btn-validate-mission-${missionID}`
+    );
+    originalHTML.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Validation...`;
+    originalHTML.disabled = true;
+    const selected = document.querySelector("input[name=selected-report]:checked");
+    if (!selected) {
+        alert("Veuillez sélectionner un rapport à valider.");
+        return;
+    }
+
+    const reportID = selected.value;
+    const comment = document.getElementById("mission-comment").value.trim();
+    MissionManager.Contract.validateWithReport(missionID, reportID, comment)
+        .then((response) => {
+            console.log("number of tx: ", response.tx);
+            const promises = response.tx.map((txID) => {
+                return Singularity.waitForTx(txID);
+            });
+            return Promise.all(promises);
+        })
+        .then(() => {
+            console.log("✅ Transactions confirmées, rechargement...");
+            renderAllMissions(MissionManager.userAddress)
+        })
+        .catch((err) => {
+            console.error("❌ Erreur lors de la validation :", err);
+            alert("Erreur lors de la validation : " + (err.message || err));
+        });
+}
+function getFilterButtonClass(status, active) {
+    const base = "px-4 py-1 rounded-full text-sm font-semibold border";
+    const color = statusColors[status];
+    if (active) {
+        return `${base} bg-${color}-600 text-white border-${color}-700`;
+    } else {
+        return `${base} bg-white text-${color}-700 border-${color}-300 hover:bg-${color}-100`;
+    }
+}
+let allMissions = [];
+function renderAllMissions(userAddress) {
+    const container = document.getElementById("mission-list");
+    container.innerHTML = "";
+    previousStatuses = {};
+    allMissions.forEach((mission) => {
+        previousStatuses[mission.id] = mission["mission-status"];
+        if (
+            activeFilters.size === 0 ||
+            activeFilters.has(mission["mission-status"])
+        ) {
+            UIManager.renderMission(mission, container, userAddress);
+        }
     });
 }
-const UIManager = {
-    showToast: function (message, type = "error", duration = 4000) {
-        const toaster = document.getElementById("toaster");
-        const colors = {
-            error: { bg: "bg-red-600", text: "text-white" },
-            success: { bg: "bg-green-600", text: "text-white" },
-            info: { bg: "bg-blue-600", text: "text-white" },
-        };
-        const toast = document.createElement("div");
-        toast.className = `px-4 py-2 rounded shadow ${colors[type].bg} ${colors[type].text} animate-fade-in`;
-        toast.textContent = message;
-        toaster.appendChild(toast);
-        setTimeout(() => {
-            toast.classList.add("animate-fade-out");
-            setTimeout(() => {
-                toast.remove();
-            }, 500);
-        }, duration);
-    },
-    renderMission: function (mission, container, userAddress) {
-        const statusMap = {
-            available: {
-                label: "Disponible",
-                color: "green",
-                button: `<button id="accept-mission" class="px-4 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">Accepter</button>`,
-            },
-            in_progress: {
-                label: "En cours",
-                color: "yellow",
-                button: function (mission, userAddress) {
-                    return `
-            <div class="flex gap-2">
-                <button class="px-4 py-1 bg-yellow-600 text-white text-sm rounded opacity-50 cursor-not-allowed">Mission en cours</button>
-                <button id="btn-validate-mission-${mission.id}" class="px-4 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700" onclick='openMissionViewModal("${mission.id}", "${userAddress}")'>Valider</button>
-            </div>`;
-                },
-            },
-            submitted: {
-                label: "Soumise",
-                color: "blue",
-                button: `<button class="px-4 py-1 bg-blue-600 text-white text-sm rounded opacity-50 cursor-not-allowed">En attente de validation</button>`,
-            },
-            completed: {
-                label: "Complétée",
-                color: "gray",
-                button: `<span class="text-sm text-gray-500 italic">✅ Mission validée</span>`,
-            },
-        };
-        const statusInfo =
-            statusMap[mission["mission-status"]] || statusMap["available"];
-        const buttonHtml =
-            typeof statusInfo.button === "function"
-                ? statusInfo.button(mission, userAddress)
-                : statusInfo.button;
-        const html = `
-      <div class="bg-white shadow rounded p-4 border-l-4 border-${
-            statusInfo.color
-        }-500">
-        <div class="flex justify-between items-start">
-          <div>
-            <h2 class="text-xl font-bold text-gray-800">${mission.name} – ${
-            mission["mission-title"]
-        }</h2>
-            <p class="text-sm text-gray-600 mb-2">${convertAccentsToHtmlCodes(
-            mission["mission-description"]
-        )}</p>
-            <p class="text-xs text-gray-500 italic">Objectif : ${
-            mission["mission-objective"]
-        }</p>
-          </div>
-          <span class="text-xs bg-${statusInfo.color}-100 text-${
-            statusInfo.color
-        }-700 px-2 py-1 rounded-full">${statusInfo.label}</span>
-        </div>
-        <div class="mt-4 flex justify-between items-center">
-          <span class="text-sm text-gray-700">🎁 Récompense : <strong>${
-            mission["mission-xp_reward"]
-        } XP</strong></span>
-          ${buttonHtml}
-        </div>
-      </div>
-    `;
-        const wrapper = document.createElement("div");
-        wrapper.innerHTML = html;
-        const acceptButton = wrapper.querySelector("#accept-mission");
-        if (acceptButton) {
-            acceptButton.addEventListener("click", () => {
-                const previousContent = acceptButton.textContent;
-                acceptButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-                MissionManager.Contract.acceptMission(mission.id).then((response) => {
-                    if (response.status !== "ok") {
-                        acceptButton.textContent = previousContent;
-                        UIManager.showToast(response.message, "error");
-                        return;
-                    }
-                    Singularity.waitForTx(response.tx[0]).then(() => {
-                        acceptButton.textContent = previousContent;
+let eventManager = new EventManager((data) => {
+    if (!data.address) {
+        return;
+    }
+    MissionManager.userAddress = data.address;
+    MissionManager.eventManager = eventManager;
+    const container = document.getElementById("filters");
+    createFilterButtons(container);
+    Blackhole.getGraph(MissionGraphID)
+        .then((graph) => {
+            allMissions = graph.children().map((m) => m.object);
+            renderAllMissions(data.address);
+            new BlockchainObserver((tx) => {
+                if (
+                    tx.data.indexOf("urn:pi:graph:action:" + MissionGraphID + ":") !== -1
+                ) {
+                    console.log("start to rerender missions");
+                    Blackhole.getGraph(MissionGraphID).then((graph) => {
+                        const newMissions = graph.children().map((m) => m.object);
+                        newMissions.forEach((mission) => {
+                            const oldStatus = previousStatuses[mission.id];
+                            const newStatus = mission["mission-status"];
+                            const assignedTo = mission["mission-assigned_to"];
+                            if (oldStatus !== newStatus) {
+                                previousStatuses[mission.id] = newStatus;
+                                console.log("find resolved mission");
+                                if (newStatus === "completed" && assignedTo === data.address) {
+                                    console.log("show completion modal");
+                                    UIManager.showCompletionModal(
+                                        data.address,
+                                        mission.name,
+                                        parseInt(mission["mission-xp_reward"] || 0)
+                                    );
+                                }
+                            }
+                        });
+                        allMissions = newMissions;
+                        renderAllMissions(data.address);
                     });
-                });
-            });
-        }
-        container.appendChild(wrapper);
-    },
-    showCompletionModal: function (userAddress, missionName, gainedXP = 0) {
-        UserProfile.getProfile(userAddress).then((profile) => {
-            profile.xp += gainedXP;
-            const base = 100;
-            let levelUp = false;
-            while (profile.xp >= base * profile.level) {
-                profile.xp -= base * profile.level;
-                profile.level++;
-                levelUp = true;
-            }
-            const progress = UIManager.computeXPProgress(profile.xp, profile.level);
-            document.getElementById(
-                "completion-modal-text"
-            ).textContent = `🎉 La mission "${missionName}" a été validée !`;
-            document.getElementById(
-                "completion-xp-gain"
-            ).textContent = `+${gainedXP} XP`;
-            document.getElementById(
-                "completion-level"
-            ).textContent = `Niveau ${profile.level}`;
-            const xpBar = document.getElementById("completion-xp-bar");
-            xpBar.style.width = `${progress.percentage}%`;
-            xpBar.textContent = `${progress.percentage}%`;
-            document.getElementById("completion-modal").classList.remove("hidden");
+                }
+            }, 1000);
+        })
+        .catch((error) => {
+            console.error("Error loading graph:", error);
         });
-    },
-    hideCompletionModal: function () {
-        const modal = document.getElementById("completion-modal");
-        modal.classList.add("hidden");
-    },
-    computeXPProgress: function (xp, level) {
-        const base = 100;
-        const requiredXP = base * level;
-        const percentage = Math.min(100, Math.floor((xp / requiredXP) * 100));
-        return { requiredXP, percentage };
-    },
-};
+});

@@ -1,10 +1,10 @@
 function openMissionViewModal(missionID, userAddress) {
     Blackhole.getGraph("8b714ab9-3aa7-469e-bd20-ad788369cea6").then((g) => {
         g.children().forEach((child) => {
-            console.log("missionID: ", missionID, "child id: ", child.object.id);
             if (child.object.id != missionID) {
                 return;
             }
+            console.log("missionID: ", missionID, "child id: ", child.object.id);
             const mission = child.object;
             document.getElementById("view-mission-id").textContent = missionID;
             document.getElementById("view-mission-title").textContent =
@@ -20,8 +20,9 @@ function openMissionViewModal(missionID, userAddress) {
             Wormhole.executeContract(
                 "dbcefa4c-54f4-45b5-8e4c-03ca73123beb",
                 "GetReportsForUser",
-                { userAddress: userAddress }
+                { userAddress: mission["mission-assigned_to"] }
             ).then((response) => {
+                console.log("reports: ", response);
                 const tableBody = document.getElementById("view-report-table");
                 tableBody.innerHTML = "";
                 response.reports.forEach((report) => {

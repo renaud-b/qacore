@@ -29,7 +29,7 @@ const MissionManager = {
                     });
             });
         },
-        validateWithReport: function (missionID, reportID) {
+        validateWithReport: function (missionID, reportID, comment) {
             return new Promise((resolve, reject) => {
                 if (!MissionManager.eventManager) {
                     reject("eventManager manquant");
@@ -39,6 +39,7 @@ const MissionManager = {
                     requestType: "validate-mission",
                     missionID,
                     reportID,
+                    comment,
                 };
                 const encodedPayload = btoa(JSON.stringify(payload));
                 MissionManager.eventManager

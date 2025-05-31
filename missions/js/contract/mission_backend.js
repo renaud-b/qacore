@@ -1,6 +1,12 @@
 const MissionGraphID = "8b714ab9-3aa7-469e-bd20-ad788369cea6";
 const ReportGraphID = "7e23bcec-f608-4124-8abd-e3fafc1ddb02";
 const ProjectManagerAddress = "1MghLWFJa6KjjEg6KCGMxmbfUp1HFLddnU";
+
+function sendError(message, details = null) {
+    const errorResponse = { status: "error", message: message, details: details };
+    return JSON.stringify(errorResponse);
+}
+
 function EditMission(encodedUserTx) {
     Wormhole.SetOutputFormat("application/json");
     const userTx = JSON.parse(atob(encodedUserTx));
@@ -80,10 +86,6 @@ function CreateMission(encodedUserTx) {
         tx: Blackhole.Commit(),
         updated: Object.keys(updates),
     });
-}
-function sendError(message, details = null) {
-    const errorResponse = { status: "error", message: message, details: details };
-    return JSON.stringify(errorResponse);
 }
 function getMissionsForUser(root, userAddress, expectedStatus) {
     return root.children().filter((child) => {
@@ -168,6 +170,8 @@ function ValidateMission(encodedUserTx) {
         }
         const missionID = payload.missionID;
         const reportID = payload.reportID;
+        const comment = payload.comment;
+
         if (!missionID || !reportID) {
             return sendError("Paramètres manquants : missionID ou reportID");
         }
@@ -202,6 +206,10 @@ function ValidateMission(encodedUserTx) {
             "mission-status",
             "submitted"
         );
+        if (comment !== undefined && comment.length > 0) {
+            Blackhole.UpdateElement(MissionGraphID, missionID, "mission-comment", comment);
+        }
+
         Blackhole.UpdateElement(
             ReportGraphID,
             reportID,
@@ -216,4 +224,70 @@ function ValidateMission(encodedUserTx) {
     } catch (err) {
         return sendError("Erreur inattendue", err.message);
     }
+}
+
+function CompleteMission(encodedUserTx) {
+    Wormhole.SetOutputFormat("application/json");
+
+    let userTx;
+    try {
+        userTx = JSON.parse(atob(encodedUserTx));
+    } catch (err) {
+        return sendError("Transaction illisible", err.message);
+    }
+
+    if (!Singularity.IsValidTransaction(userTx)) {
+        return sendError("Transaction invalide", encodedUserTx);
+    }
+
+    if (userTx.sender_blockchain_address !== ProjectManagerAddress) {
+        return sendError("Seul le Project Manager peut compléter une mission");
+    }
+
+    let payload;
+    try {
+        payload = JSON.parse(atob(userTx.data));
+    } catch (err) {
+        return sendError("Payload illisible", err.message);
+    }
+
+    if (payload.requestType !== "complete-mission") {
+        return sendError("Type de requête invalide", payload.requestType);
+    }
+
+    const now = Date.now();
+    if (Math.abs(now - payload.timestamp) > 5000) {
+        return sendError("Timestamp trop ancien ou trop futur", {
+            now,
+            received: payload.timestamp,
+        });
+    }
+
+    const graph = new GraphElement(MissionGraphID, Blackhole.LoadGraph(MissionGraphID));
+    const missionNode = graph.findByID(payload.missionID);
+    if (!missionNode) {
+        return sendError("Mission introuvable", payload.missionID);
+    }
+
+    if (missionNode.object["mission-status"] !== "submitted") {
+        return sendError("La mission n'est pas en statut 'submitted'");
+    }
+
+    const response = Wormhole.PersistentScript("31b3ad10-6d3f-4a8e-acd8-fdfd41ef72bc", "ProvideXP", [
+        encodedUserTx,
+        missionNode.object["mission-assigned_to"],
+        missionNode.object["mission-xp_reward"],
+    ]);
+    if (response.status !== "ok") {
+        return sendError("Impossible de fournir l'exp a l'utilisateur")
+    }
+
+
+    Blackhole.UpdateElement(MissionGraphID, payload.missionID, "mission-status", "completed");
+
+    return JSON.stringify({
+        status: "ok",
+        tx: [...Blackhole.Commit(), ...response.tx],
+        updated: ["mission-status"],
+    });
 }

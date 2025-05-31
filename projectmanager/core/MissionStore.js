@@ -87,4 +87,22 @@ const MissionStore = {
                 });
         });
     },
+    completeMission: function (eventManager, userAddress, missionID) {
+        const payload = {
+            requestType: "complete-mission",
+            missionID: missionID,
+            timestamp: Date.now(),
+        };
+        const encodedPayload = btoa(JSON.stringify(payload));
+        return eventManager.sign(userAddress, encodedPayload, 0)
+            .then((signedTx) => {
+                const encodedUserTx = btoa(JSON.stringify(signedTx));
+                return Wormhole.executeContract(
+                    MissionContractID,
+                    "CompleteMission",
+                    { encodedUserTx },
+                    "https://utopixia.com"
+                );
+            });
+    }
 };
