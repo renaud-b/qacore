@@ -1,178 +1,275 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>Admin – Missions</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script
-            src="https://kit.fontawesome.com/ab44efbce6.js"
             crossorigin="anonymous"
+            src="https://kit.fontawesome.com/ab44efbce6.js"
     ></script>
     <meta content="architect" name="guilds" />
     <meta content="prod" name="mode" />
 </head>
-<body class="bg-gray-100 min-h-screen text-gray-800" width="1150" height="600">
-
+<body
+        class="bg-gray-100 min-h-screen text-gray-800"
+        height="600"
+        width="1150"
+>
 <div class="max-w-5xl mx-auto py-10 px-4 space-y-6">
-
     <!-- Header -->
     <div class="flex justify-between items-center">
-        <h1 class="text-3xl font-bold">🛠️ Panneau d'administration</h1>
+        <h1 class="text-3xl font-bold">🛠️ Panneau d&#39;administration</h1>
         <div class="space-x-2">
-            <button id="btn-users" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Utilisateurs
-            </button>
-            <button id="btn-stats" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">Statistiques
-            </button>
-            <button id="btn-add-mission" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">➕ Ajouter
-                une mission
-            </button>
+            <button
+                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    id="btn-users"
+            >
+                Utilisateurs</button
+            ><button
+                id="btn-stats"
+                class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+        >
+            Statistiques</button
+        ><button
+                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                id="btn-add-mission"
+        >
+            ➕ Ajouter une mission
+        </button>
         </div>
     </div>
-
     <!-- Accordéons -->
     <div class="space-y-4">
         <!-- Submitted -->
-        <div  class="bg-white rounded shadow p-4 border-l-4 border-blue-500">
+        <div class="bg-white rounded shadow p-4 border-l-4 border-blue-500">
             <h2 class="font-semibold text-blue-700 mb-2">📬 Missions soumises</h2>
-            <div data-status="submitted" class="space-y-2">
+            <div class="space-y-2" data-status="submitted">
                 <div class="p-4 bg-gray-50 rounded border">
                     <h3 class="font-bold text-lg">Mission Gamma</h3>
-                    <p class="text-sm text-gray-600">Rapport sur les artefacts non cumulables.</p>
-                    <p class="text-xs text-gray-500 italic">Assignée à : <strong>Émeric</strong></p>
+                    <p class="text-sm text-gray-600">
+                        Rapport sur les artefacts non cumulables.
+                    </p>
+                    <p class="text-xs text-gray-500 italic">
+                        Assignée à : <strong>Émeric</strong>
+                    </p>
                     <div class="flex justify-between items-center mt-2">
-                        <span class="text-sm text-blue-600 font-medium">🎁 100 XP</span>
-                        <button onclick="openFakeValidation()" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">Valider
-                            mission
-                        </button>
+                <span class="text-sm text-blue-600 font-medium">🎁 100 XP</span
+                ><button
+                            class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                            onclick="openFakeValidation()"
+                    >
+                        Valider mission
+                    </button>
                     </div>
                 </div>
             </div>
         </div>
         <!-- Available -->
-        <details class="bg-white rounded shadow p-4 open:border-l-4 border-green-500">
-            <summary class="cursor-pointer flex flex-row font-semibold text-green-700">📂 Missions disponibles</summary>
-            <div data-status="available" class="mt-4 space-y-2">
-
-            </div>
+        <details
+                class="bg-white rounded shadow p-4 open:border-l-4 border-green-500"
+        >
+            <summary
+                    class="cursor-pointer flex flex-row font-semibold text-green-700"
+            >
+                📂 Missions disponibles
+            </summary>
+            <div class="mt-4 space-y-2" data-status="available"></div>
         </details>
-
         <!-- In Progress -->
-        <details class="bg-white rounded shadow p-4 open:border-l-4 border-yellow-500">
-            <summary class="cursor-pointer flex flex-row  font-semibold text-yellow-700">🔄 Missions en cours</summary>
-            <div data-status="in_progress" class="mt-4 space-y-2">
-
-            </div>
+        <details
+                class="bg-white rounded shadow p-4 open:border-l-4 border-yellow-500"
+        >
+            <summary
+                    class="cursor-pointer flex flex-row font-semibold text-yellow-700"
+            >
+                🔄 Missions en cours
+            </summary>
+            <div class="mt-4 space-y-2" data-status="in_progress"></div>
         </details>
-
         <!-- Completed -->
-        <details class="bg-white rounded shadow p-4 open:border-l-4 border-gray-500">
-            <summary class="cursor-pointer flex flex-row  font-semibold text-gray-700">✅ Missions validées</summary>
-            <div data-status="completed" class="mt-4 space-y-2">
-
-            </div>
+        <details
+                class="bg-white rounded shadow p-4 open:border-l-4 border-gray-500"
+        >
+            <summary
+                    class="cursor-pointer flex flex-row font-semibold text-gray-700"
+            >
+                ✅ Missions validées
+            </summary>
+            <div data-status="completed" class="mt-4 space-y-2"></div>
         </details>
-
     </div>
 </div>
-
 <!-- Modale Utilisateurs (placeholder) -->
-<div id="modal-users" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+<div
+        id="modal-users"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+>
     <div class="bg-white p-6 rounded shadow-lg w-full max-w-md">
         <h2 class="text-xl font-bold mb-4">👥 Gestion des utilisateurs</h2>
         <p class="text-sm text-gray-600">Contenu à venir...</p>
         <div class="text-right mt-4">
-            <button onclick="document.getElementById('modal-users').classList.add('hidden')"
-                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Fermer
+            <button
+                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                    onclick="document.getElementById('modal-users').classList.add('hidden')"
+            >
+                Fermer
             </button>
         </div>
     </div>
 </div>
-
 <!-- Modale Statistiques (placeholder) -->
-<div id="modal-stats" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+<div
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        id="modal-stats"
+>
     <div class="bg-white p-6 rounded shadow-lg w-full max-w-md">
         <h2 class="text-xl font-bold mb-4">📊 Statistiques du projet</h2>
         <p class="text-sm text-gray-600">À intégrer plus tard.</p>
         <div class="text-right mt-4">
-            <button onclick="document.getElementById('modal-stats').classList.add('hidden')"
-                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Fermer
+            <button
+                    onclick="document.getElementById('modal-stats').classList.add('hidden')"
+                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+            >
+                Fermer
             </button>
         </div>
     </div>
 </div>
-
 <!-- Modale Création Mission -->
-<div id="modal-create-mission"
-     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+<div
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        id="modal-create-mission"
+>
     <div class="bg-white p-6 rounded shadow-lg w-full max-w-xl space-y-4">
         <h2 class="text-xl font-bold text-gray-800">➕ Nouvelle mission</h2>
-
         <div class="space-y-2">
-            <input id="new-mission-title" type="text" placeholder="Titre affiché"
-                   class="w-full px-4 py-2 border rounded"/>
-            <textarea id="new-mission-desc" rows="3" placeholder="Description de la mission"
-                      class="w-full px-4 py-2 border rounded"></textarea>
-            <input id="new-mission-obj" type="text" placeholder="Objectif à accomplir"
-                   class="w-full px-4 py-2 border rounded"/>
-            <input id="new-mission-xp" type="number" placeholder="XP attribuée (ex: 100)"
-                   class="w-full px-4 py-2 border rounded"/>
+            <input
+                    class="w-full px-4 py-2 border rounded"
+                    id="new-mission-title"
+                    placeholder="Titre affiché"
+                    type="text"
+            /><textarea
+                id="new-mission-desc"
+                placeholder="Description de la mission"
+                class="w-full px-4 py-2 border rounded"
+                rows="3"
+        ></textarea
+        ><input
+                placeholder="Objectif à accomplir"
+                type="text"
+                class="w-full px-4 py-2 border rounded"
+                id="new-mission-obj"
+        /><input
+                class="w-full px-4 py-2 border rounded"
+                id="new-mission-xp"
+                placeholder="XP attribuée (ex: 100)"
+                type="number"
+        />
         </div>
-
         <div class="text-right space-x-2">
-            <button onclick="document.getElementById('modal-create-mission').classList.add('hidden')"
-                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Annuler
-            </button>
-            <button onclick="createMission()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                Créer
-            </button>
+            <button
+                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                    onclick="document.getElementById('modal-create-mission').classList.add('hidden')"
+            >
+                Annuler</button
+            ><button
+                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                onclick="createMission()"
+        >
+            Créer
+        </button>
         </div>
     </div>
 </div>
-
 <!-- Modale Édition Mission -->
-<div id="modal-edit-mission" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+<div
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        id="modal-edit-mission"
+>
     <div class="bg-white p-6 rounded shadow-lg w-full max-w-xl space-y-4">
         <h2 class="text-xl font-bold text-gray-800">✏️ Modifier la mission</h2>
-
         <div class="space-y-2">
-            <input id="edit-mission-id" type="text" readonly
-                   class="w-full px-4 py-2 border rounded bg-gray-100 text-gray-500 cursor-not-allowed"/>
-            <input id="edit-mission-title" type="text" placeholder="Titre affiché"
-                   class="w-full px-4 py-2 border rounded"/>
-            <textarea id="edit-mission-desc" rows="3" placeholder="Description"
-                      class="w-full px-4 py-2 border rounded"></textarea>
-            <input id="edit-mission-obj" type="text" placeholder="Objectif" class="w-full px-4 py-2 border rounded"/>
-            <input id="edit-mission-xp" type="number" placeholder="XP (ex: 100)"
-                   class="w-full px-4 py-2 border rounded"/>
+            <input
+                    class="w-full px-4 py-2 border rounded bg-gray-100 text-gray-500 cursor-not-allowed"
+                    type="text"
+                    id="edit-mission-id"
+                    readonly=""
+            /><input
+                placeholder="Titre affiché"
+                type="text"
+                class="w-full px-4 py-2 border rounded"
+                id="edit-mission-title"
+        /><textarea
+                class="w-full px-4 py-2 border rounded"
+                id="edit-mission-desc"
+                placeholder="Description"
+                rows="3"
+        ></textarea
+        ><input
+                id="edit-mission-obj"
+                placeholder="Objectif"
+                class="w-full px-4 py-2 border rounded"
+                type="text"
+        /><input
+                placeholder="XP (ex: 100)"
+                type="number"
+                id="edit-mission-xp"
+                class="w-full px-4 py-2 border rounded"
+        />
         </div>
-
         <div class="text-right space-x-2">
-            <button onclick="document.getElementById('modal-edit-mission').classList.add('hidden')"
-                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Annuler
-            </button>
-            <button onclick="saveMissionEdit()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                Enregistrer
-            </button>
+            <button
+                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                    onclick="document.getElementById('modal-edit-mission').classList.add('hidden')"
+            >
+                Annuler</button
+            ><button
+                onclick="saveMissionEdit()"
+                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+            Enregistrer
+        </button>
         </div>
     </div>
 </div>
 <!-- Modale Validation Mission -->
-<div id="modal-validate-mission" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white p-6 rounded shadow-lg w-full max-w-2xl space-y-4">
+<div
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        id="modal-validate-mission"
+>
+    <div
+            class="bg-white p-6 rounded shadow-lg w-full max-w-3xl space-y-4 max-h-[90vh] overflow-y-auto">
         <h2 class="text-xl font-bold text-gray-800">✅ Valider une mission</h2>
-
         <div class="space-y-2">
-            <p><strong class="text-gray-700">Titre :</strong> <span id="validate-title" class="text-gray-800"></span></p>
-            <p><strong class="text-gray-700">Objectif :</strong> <span id="validate-objective" class="text-gray-800"></span></p>
-            <p><strong class="text-gray-700">Description :</strong> <span id="validate-description" class="text-gray-800"></span></p>
-            <p><strong class="text-gray-700">Récompense XP :</strong> <span id="validate-xp" class="text-blue-600 font-semibold"></span></p>
+            <div class="hidden" id="mission-id"></div>
+            <p>
+                <strong class="text-gray-700">Titre :</strong
+                ><span class="text-gray-800" id="validate-title"></span>
+            </p>
+            <p>
+                <strong class="text-gray-700">Objectif :</strong
+                ><span class="text-gray-800" id="validate-objective"></span>
+            </p>
+            <p>
+                <strong class="text-gray-700">Description :</strong
+                ><span class="text-gray-800" id="validate-description"></span>
+            </p>
+            <p>
+                <strong class="text-gray-700">Récompense XP :</strong
+                ><span class="text-blue-600 font-semibold" id="validate-xp"></span>
+            </p>
             <p><strong class="text-gray-700">Commentaire du testeur :</strong></p>
-            <p id="validate-comment" class="p-2 bg-gray-100 rounded text-sm text-gray-700 whitespace-pre-line"></p>
+            <p
+                    class="p-2 bg-gray-100 rounded text-sm text-gray-700 whitespace-pre-line"
+                    id="validate-comment"
+            ></p>
         </div>
-
         <div>
-            <h3 class="text-lg font-semibold text-gray-800 mt-4 mb-2">📝 Rapport</h3>
+            <h3 class="text-lg font-semibold text-gray-800 mt-4 mb-2">
+                📝 Rapport
+            </h3>
             <table class="w-full text-sm border rounded overflow-hidden">
                 <thead class="bg-gray-100 text-gray-700">
                 <tr>
@@ -180,17 +277,27 @@
                     <th class="px-3 py-2 text-left border-b">Valeur</th>
                 </tr>
                 </thead>
-                <tbody id="validate-report-table" class="bg-white divide-y divide-gray-100"></tbody>
+                <tbody
+                        id="validate-report-table"
+                        class="bg-white divide-y divide-gray-100"
+                ></tbody>
             </table>
         </div>
-
         <div class="text-right space-x-2">
-            <button onclick="document.getElementById('modal-validate-mission').classList.add('hidden')" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Annuler</button>
-            <button onclick="confirmMissionValidation()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Valider</button>
+            <button
+                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                    onclick="document.getElementById('modal-validate-mission').classList.add('hidden')"
+            >
+                Annuler</button
+            ><button
+                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                onclick="confirmMissionValidation()"
+        >
+            Valider
+        </button>
         </div>
     </div>
 </div>
-
 <script src="/ipfs/QmcSG2fLG6gc55vGf1P1dcfcmZcVqLsn2bUqPc34kiB7tN"></script>
 <!-- unicode --><!-- Core scripts -->
 <script src="/parser/graph/javascript/0b6a9301-cb03-4887-bdca-1170d13f21e5"></script>
@@ -213,6 +320,5 @@
 <!-- core/ReportStore -->
 <script src="/parser/graph/javascript/761e1b1f-5977-4a11-81c8-2302e4d319cf"></script>
 <!-- app.js -->
-
 </body>
 </html>
