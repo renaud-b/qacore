@@ -1,11 +1,10 @@
 const MissionGraphID = "8b714ab9-3aa7-469e-bd20-ad788369cea6";
-
-let userAddress = null
+let userAddress = null;
 const eventManager = new EventManager((data) => {
     if (!data.address) {
         return;
     }
-    userAddress = data.address
+    userAddress = data.address;
     Blackhole.getGraph(MissionGraphID).then((graph) => {
         const missions = graph.children().map((n) => n.object);
         const submitted = missions.filter(
@@ -39,9 +38,11 @@ const eventManager = new EventManager((data) => {
         }, 1000);
     });
     document.getElementById("btn-users").onclick = () => {
+        StatsUI.showUserStats();
         document.getElementById("modal-users").classList.remove("hidden");
     };
     document.getElementById("btn-stats").onclick = () => {
+        StatsUI.showStats();
         document.getElementById("modal-stats").classList.remove("hidden");
     };
     document.getElementById("btn-add-mission").onclick = () => {
@@ -98,53 +99,78 @@ function editMission(id, title, desc, obj, xp) {
     document.getElementById("edit-mission-xp").value = xp;
     document.getElementById("modal-edit-mission").classList.remove("hidden");
 }
-
 function confirmMissionValidation() {
-    const missionID = document.getElementById("mission-id").innerText
-    console.log("missionID: ", missionID)
-
+    const validateBtn = document.querySelector(
+        "#modal-validate-mission button.bg-green-600"
+    );
+    const originalHTML = validateBtn.innerHTML;
+    validateBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Validation...`;
+    validateBtn.disabled = true;
+    const missionID = document.getElementById("mission-id").innerText;
+    console.log("missionID: ", missionID);
     MissionStore.completeMission(eventManager, userAddress, missionID)
+        .then((res) => {
+            if (res.status !== "ok") {
+                alert("Échec de validation : " + res.message);
+                validateBtn.innerHTML = originalHTML;
+                validateBtn.disabled = false;
+                return;
+            }
+            const txs = res.tx || [];
+            return Promise.all(txs.map((tx) => Singularity.waitForTx(tx))).then(
+                () => {
+                    document
+                        .getElementById("modal-validate-mission")
+                        .classList.add("hidden");
+                    validateBtn.innerHTML = originalHTML;
+                    validateBtn.disabled = false;
+                }
+            );
+        })
+        .catch((err) => {
+            alert("Erreur : " + err.message || err);
+            validateBtn.innerHTML = originalHTML;
+            validateBtn.disabled = false;
+        });
 }
-
 function openValidationModal(mission) {
-    document.getElementById("mission-id").innerText = mission.id
+    document.getElementById("mission-id").innerText = mission.id;
     document.getElementById("validate-title").textContent = mission.name;
-    document.getElementById("validate-objective").textContent = mission["mission-objective"];
+    document.getElementById("validate-objective").textContent =
+        mission["mission-objective"];
     document.getElementById("validate-description").textContent =
         mission["mission-description"];
-    document.getElementById("validate-xp").textContent = `${mission["mission-xp_reward"]} XP`;
+    document.getElementById(
+        "validate-xp"
+    ).textContent = `${mission["mission-xp_reward"]} XP`;
     document.getElementById("validate-comment").textContent =
         mission["mission-comment"] || "Aucun commentaire";
     const tableBody = document.getElementById("validate-report-table");
     tableBody.innerHTML = "";
-
-
-    const reportID = mission["mission-report_id"]
-    console.log("report id: ", reportID)
+    const reportID = mission["mission-report_id"];
+    console.log("report id: ", reportID);
     if (reportID) {
-        ReportStore.getReport(reportID).then((report) => {
-            Object.entries(report?.object || {}).forEach(([key, value]) => {
-                if (key.indexOf("report-") !== 0) {
-                    return
-                }
-                const humanReadableKey = key.replace("report-", "")
-                const row = document.createElement("tr");
-                row.innerHTML = `
+        ReportStore.getReport(reportID)
+            .then((report) => {
+                Object.entries(report?.object || {}).forEach(([key, value]) => {
+                    if (key.indexOf("report-") !== 0) {
+                        return;
+                    }
+                    const humanReadableKey = key.replace("report-", "");
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
                 <td class="px-3 py-2 font-medium text-gray-700">${humanReadableKey}</td>
                 <td class="px-3 py-2 text-gray-600">${value}</td>
             `;
-                tableBody.appendChild(row);
+                    tableBody.appendChild(row);
+                });
+            })
+            .catch((e) => {
+                console.error(e);
             });
-        }).catch((e) => {
-            console.error(e)
-        })
     }
-
-
     document.getElementById("modal-validate-mission").classList.remove("hidden");
 }
-
-
 function createMission() {
     const label = document.getElementById("new-mission-title").value.trim();
     const desc = document.getElementById("new-mission-desc").value.trim();

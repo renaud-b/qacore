@@ -94,7 +94,8 @@ const MissionStore = {
             timestamp: Date.now(),
         };
         const encodedPayload = btoa(JSON.stringify(payload));
-        return eventManager.sign(userAddress, encodedPayload, 0)
+        return eventManager
+            .sign(userAddress, encodedPayload, 0)
             .then((signedTx) => {
                 const encodedUserTx = btoa(JSON.stringify(signedTx));
                 return Wormhole.executeContract(
@@ -104,5 +105,5 @@ const MissionStore = {
                     "https://utopixia.com"
                 );
             });
-    }
+    },
 };

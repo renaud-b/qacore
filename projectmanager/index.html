@@ -9,8 +9,12 @@
             crossorigin="anonymous"
             src="https://kit.fontawesome.com/ab44efbce6.js"
     ></script>
-    <meta content="architect" name="guilds" />
+    <meta name="guilds" content="architect" />
     <meta content="prod" name="mode" />
+    <link
+            href="/ipfs/QmRxeHUmmGTAwBz7iAiPk5THYwXNyUFkdY5Ygb1ggTyviJ"
+            rel="icon"
+    />
 </head>
 <body
         class="bg-gray-100 min-h-screen text-gray-800"
@@ -23,8 +27,8 @@
         <h1 class="text-3xl font-bold">🛠️ Panneau d&#39;administration</h1>
         <div class="space-x-2">
             <button
-                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                     id="btn-users"
+                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
                 Utilisateurs</button
             ><button
@@ -45,9 +49,7 @@
         <!-- Submitted -->
         <div class="bg-white rounded shadow p-4 border-l-4 border-blue-500">
             <h2 class="font-semibold text-blue-700 mb-2">📬 Missions soumises</h2>
-            <div class="space-y-2" data-status="submitted">
-
-            </div>
+            <div class="space-y-2" data-status="submitted"></div>
         </div>
         <!-- Available -->
         <details
@@ -80,26 +82,27 @@
             >
                 ✅ Missions validées
             </summary>
-            <div data-status="completed" class="mt-4 space-y-2"></div>
+            <div class="mt-4 space-y-2" data-status="completed"></div>
         </details>
     </div>
 </div>
 <!-- Modale Utilisateurs (placeholder) -->
 <div
-        id="modal-users"
         class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        id="modal-users"
 >
     <div class="bg-white p-6 rounded shadow-lg w-full max-w-md">
         <h2 class="text-xl font-bold mb-4">👥 Gestion des utilisateurs</h2>
-        <p class="text-sm text-gray-600">Contenu à venir...</p>
-        <div class="text-right mt-4">
-            <button
-                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                    onclick="document.getElementById('modal-users').classList.add('hidden')"
-            >
-                Fermer
-            </button>
-        </div>
+        <div
+                id="users-stats"
+                class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4"
+        ></div>
+        <button
+                class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                onclick="document.getElementById('modal-users').classList.add('hidden')"
+        >
+            Fermer
+        </button>
     </div>
 </div>
 <!-- Modale Statistiques (placeholder) -->
@@ -109,11 +112,18 @@
 >
     <div class="bg-white p-6 rounded shadow-lg w-full max-w-md">
         <h2 class="text-xl font-bold mb-4">📊 Statistiques du projet</h2>
-        <p class="text-sm text-gray-600">À intégrer plus tard.</p>
+        <!-- Dans #modal-stats -->
+        <div class="space-y-4 text-sm text-gray-700" id="stats-content">
+            <p>Chargement des statistiques...</p>
+        </div>
+        <canvas
+                id="chart-canvas"
+                class="w-full max-w-xl mx-auto hidden"
+        ></canvas>
         <div class="text-right mt-4">
             <button
-                    onclick="document.getElementById('modal-stats').classList.add('hidden')"
                     class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                    onclick="document.getElementById('modal-stats').classList.add('hidden')"
             >
                 Fermer
             </button>
@@ -122,28 +132,28 @@
 </div>
 <!-- Modale Création Mission -->
 <div
-        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
         id="modal-create-mission"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
 >
     <div class="bg-white p-6 rounded shadow-lg w-full max-w-xl space-y-4">
         <h2 class="text-xl font-bold text-gray-800">➕ Nouvelle mission</h2>
         <div class="space-y-2">
             <input
+                    type="text"
                     class="w-full px-4 py-2 border rounded"
                     id="new-mission-title"
                     placeholder="Titre affiché"
-                    type="text"
             /><textarea
+                class="w-full px-4 py-2 border rounded"
                 id="new-mission-desc"
                 placeholder="Description de la mission"
-                class="w-full px-4 py-2 border rounded"
                 rows="3"
         ></textarea
         ><input
-                placeholder="Objectif à accomplir"
-                type="text"
                 class="w-full px-4 py-2 border rounded"
+                placeholder="Objectif à accomplir"
                 id="new-mission-obj"
+                type="text"
         /><input
                 class="w-full px-4 py-2 border rounded"
                 id="new-mission-xp"
@@ -153,13 +163,13 @@
         </div>
         <div class="text-right space-x-2">
             <button
-                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
                     onclick="document.getElementById('modal-create-mission').classList.add('hidden')"
+                    class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
             >
                 Annuler</button
             ><button
-                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
                 onclick="createMission()"
+                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
         >
             Créer
         </button>
@@ -176,30 +186,30 @@
         <div class="space-y-2">
             <input
                     class="w-full px-4 py-2 border rounded bg-gray-100 text-gray-500 cursor-not-allowed"
-                    type="text"
                     id="edit-mission-id"
+                    type="text"
                     readonly=""
             /><input
-                placeholder="Titre affiché"
                 type="text"
                 class="w-full px-4 py-2 border rounded"
                 id="edit-mission-title"
+                placeholder="Titre affiché"
         /><textarea
+                rows="3"
                 class="w-full px-4 py-2 border rounded"
                 id="edit-mission-desc"
                 placeholder="Description"
-                rows="3"
         ></textarea
         ><input
                 id="edit-mission-obj"
                 placeholder="Objectif"
-                class="w-full px-4 py-2 border rounded"
                 type="text"
+                class="w-full px-4 py-2 border rounded"
         /><input
+                class="w-full px-4 py-2 border rounded"
+                id="edit-mission-xp"
                 placeholder="XP (ex: 100)"
                 type="number"
-                id="edit-mission-xp"
-                class="w-full px-4 py-2 border rounded"
         />
         </div>
         <div class="text-right space-x-2">
@@ -209,8 +219,8 @@
             >
                 Annuler</button
             ><button
-                onclick="saveMissionEdit()"
                 class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                onclick="saveMissionEdit()"
         >
             Enregistrer
         </button>
@@ -223,17 +233,18 @@
         id="modal-validate-mission"
 >
     <div
-            class="bg-white p-6 rounded shadow-lg w-full max-w-3xl space-y-4 max-h-[90vh] overflow-y-auto">
+            class="bg-white p-6 rounded shadow-lg w-full max-w-3xl space-y-4 max-h-[90vh] overflow-y-auto"
+    >
         <h2 class="text-xl font-bold text-gray-800">✅ Valider une mission</h2>
         <div class="space-y-2">
             <div class="hidden" id="mission-id"></div>
             <p>
                 <strong class="text-gray-700">Titre :</strong
-                ><span class="text-gray-800" id="validate-title"></span>
+                ><span id="validate-title" class="text-gray-800"></span>
             </p>
             <p>
                 <strong class="text-gray-700">Objectif :</strong
-                ><span class="text-gray-800" id="validate-objective"></span>
+                ><span id="validate-objective" class="text-gray-800"></span>
             </p>
             <p>
                 <strong class="text-gray-700">Description :</strong
@@ -245,8 +256,8 @@
             </p>
             <p><strong class="text-gray-700">Commentaire du testeur :</strong></p>
             <p
-                    class="p-2 bg-gray-100 rounded text-sm text-gray-700 whitespace-pre-line"
                     id="validate-comment"
+                    class="p-2 bg-gray-100 rounded text-sm text-gray-700 whitespace-pre-line"
             ></p>
         </div>
         <div>
@@ -281,6 +292,7 @@
         </div>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="/ipfs/QmcSG2fLG6gc55vGf1P1dcfcmZcVqLsn2bUqPc34kiB7tN"></script>
 <!-- unicode --><!-- Core scripts -->
 <script src="/parser/graph/javascript/0b6a9301-cb03-4887-bdca-1170d13f21e5"></script>
@@ -297,6 +309,8 @@
 <!-- UserProfile -->
 <script src="/parser/graph/javascript/1f4252bc-0955-4723-9406-b80647cc356b"></script>
 <!-- core/AdminUI -->
+<script src="/parser/graph/javascript/88095f8a-7945-457a-a93a-143217bb0abd"></script>
+<!-- core/StatsUI -->
 <script src="/parser/graph/javascript/48553e83-d222-48ea-9bc6-2cc8247d158b"></script>
 <!-- core/MissionStore -->
 <script src="/parser/graph/javascript/7638334b-8520-4e5d-a23b-436e98cdbc72"></script>
