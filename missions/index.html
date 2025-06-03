@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <meta content="architect" name="guilds" />
+    <meta name="guilds" content="architect" />
     <meta content="prod" name="mode" />
     <title>Missions</title>
     <link
             rel="icon"
-            href="/ipfs/QmWDn6ymcrKSka2tZTq27dSkGT3f5baDoQYwz9aY8zw5RY"
+            href="/ipfs/Qmbap91sbcB9QsnfKrkhzKvtRsvwfgnyvnsMz7kypQJc77"
     />
     <script src="https://cdn.tailwindcss.com"></script>
     <script
@@ -49,13 +49,13 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-6" height="600" width="400">
+<body height="600" width="400" class="bg-gray-100 min-h-screen p-6">
 <div class="max-w-4xl mx-auto">
     <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">
         📋 Missions disponibles
     </h1>
     <div class="flex flex-wrap gap-2 justify-center mb-6" id="filters"></div>
-    <div id="mission-list" class="space-y-6"></div>
+    <div class="space-y-6" id="mission-list"></div>
 </div>
 <!-- Modale de vue mission -->
 <div
@@ -69,18 +69,18 @@
             📋 Détails de la mission
         </h2>
         <div class="space-y-2 text-sm text-gray-700">
-            <div id="view-mission-id" class="hidden"></div>
+            <div class="hidden" id="view-mission-id"></div>
             <p>
                 <strong>Titre :</strong
                 ><span class="text-gray-800" id="view-mission-title"></span>
             </p>
             <p>
                 <strong>Objectif :</strong
-                ><span id="view-mission-obj" class="text-gray-800"></span>
+                ><span class="text-gray-800" id="view-mission-obj"></span>
             </p>
             <p>
                 <strong>Description :</strong
-                ><span id="view-mission-desc" class="text-gray-800"></span>
+                ><span class="text-gray-800" id="view-mission-desc"></span>
             </p>
             <p>
                 <strong>Récompense :</strong
@@ -96,10 +96,10 @@
                     for="mission-comment"
             >🗣 Commentaire du testeur</label
             ><textarea
-                rows="3"
-                class="w-full px-4 py-2 border rounded text-sm text-gray-800"
                 placeholder="Ajoute ton ressenti, une note perso..."
+                rows="3"
                 id="mission-comment"
+                class="w-full px-4 py-2 border rounded text-sm text-gray-800"
         ></textarea>
         </div>
         <div>
@@ -127,8 +127,8 @@
             >
                 Fermer</button
             ><button
+                class="px-4 text-white py-2 bg-green-600 text-white rounded hover:bg-green-700"
                 onclick="validateMission()"
-                class="px-4 text-white py-2 bg-green-300 rounded hover:bg-green-400"
         >
             Valider
         </button>

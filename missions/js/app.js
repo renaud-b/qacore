@@ -40,12 +40,13 @@ function validateMission() {
     );
     originalHTML.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Validation...`;
     originalHTML.disabled = true;
-    const selected = document.querySelector("input[name=selected-report]:checked");
+    const selected = document.querySelector(
+        "input[name=selected-report]:checked"
+    );
     if (!selected) {
         alert("Veuillez sélectionner un rapport à valider.");
         return;
     }
-
     const reportID = selected.value;
     const comment = document.getElementById("mission-comment").value.trim();
     MissionManager.Contract.validateWithReport(missionID, reportID, comment)
@@ -58,7 +59,7 @@ function validateMission() {
         })
         .then(() => {
             console.log("✅ Transactions confirmées, rechargement...");
-            renderAllMissions(MissionManager.userAddress)
+            renderAllMissions(MissionManager.userAddress);
         })
         .catch((err) => {
             console.error("❌ Erreur lors de la validation :", err);
