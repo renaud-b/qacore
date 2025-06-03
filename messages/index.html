@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Messagerie – QACore</title>
+    <meta content="architect" name="guilds" />
+    <meta content="prod" name="mode" />
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body height="750" class="bg-gray-900 text-white h-screen flex font-sans" width="500">
+<!-- Bouton burger, visible seulement en mobile --><button
+        class="md:hidden fixed top-1 left-2 z-50 bg-gray-800 text-white px-3 py-2 rounded"
+        id="toggle-sidebar"
+>
+    ☰</button><!-- Sidebar -->
+<aside
+        class="fixed md:static inset-y-0 left-0 w-64 bg-gray-800 p-4 flex flex-col space-y-2 transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40"
+        id="sidebar">
+    <h1 class="text-xl font-bold mb-4 ml-10">📡 Channels</h1>
+    <ul class="space-y-1 overflow-y-auto max-h-[calc(100vh-10rem)] pr-1" id="channel-list"></ul>
+    <!-- Bouton visible seulement pour le PM --><button
+        class="mt-auto bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-600 hidden admin-btn flex flex-row"
+        id="config-channels"
+>
+    <span class="text-xl">＋</span>
+    <span class="pl-2">Ajouter un channel</span>
+</button>
+</aside>
+<div class="fixed inset-0 bg-black bg-opacity-50 hidden md:hidden z-30" id="sidebar-backdrop"
+     onclick="toggleSidebar(false)"></div>
+<!-- Main chat area -->
+<main class="flex-1 flex flex-col">
+    <!-- Header -->
+    <div class="bg-gray-800 px-4 py-3 border-b border-gray-700 flex flex-row">
+        <h2 class="text-lg font-semibold ml-10" id="channel-title">
+            # général
+        </h2>
+        <!-- Bouton visible seulement pour le PM --><button
+            class="ml-2 text-white pl-2 pr-2 hover:bg-gray-600 rounded hidden admin-btn"
+            id="config-channel"
+    >⚙️</button>
+    </div>
+    <!-- Message list -->
+    <div id="message-list" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-900"></div>
+    <!-- Message input -->
+    <div class="border-t border-gray-700 p-4 bg-gray-800">
+        <div class="flex gap-2">
+            <input
+                    class="flex-1 px-4 py-2 bg-gray-700 rounded text-white focus:outline-none"
+                    type="text"
+                    id="chat-input"
+                    placeholder="Écris ton message..."
+            /><button class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">
+            Envoyer
+        </button>
+        </div>
+    </div>
+</main>
+<!-- modal config channel -->
+<div id="modal-edit-chan" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-gray-800 text-white w-full max-w-md rounded-lg shadow-lg p-6 space-y-4 border border-gray-700">
+        <h2 class="text-xl font-bold">✏️ Modifier le channel</h2>
+
+        <input id="edit-chan-name" type="text" placeholder="Nom du channel" class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+
+        <div>
+            <label class="block mb-1">Utilisateurs autorisés</label>
+            <ul id="edit-chan-user-list" class="space-y-1 mb-3">
+                <!-- utilisateurs générés ici -->
+            </ul>
+            <div class="flex gap-2">
+                <input id="edit-chan-user-input" type="text" placeholder="Adresse à ajouter" class="flex-1 px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <button onclick="UIManager.addUserToChannel()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Ajouter</button>
+            </div>
+        </div>
+
+        <div class="text-right space-x-2">
+            <button
+                    onclick="document.getElementById('modal-edit-chan').classList.add('hidden')"
+                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Annuler</button>
+            <button id="save-channel-btn" onclick="UIManager.saveChannelEdition()" class="ml-2 mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                <div class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Enregistrer</span>
+            </button>
+            <div class="border-t border-gray-600 pt-4 mt-4 text-right flex flex-row-reverse">
+                <button id="delete-thread-btn" onclick="UIManager.confirmDeleteThread()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 justify-center">
+                    <div class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Supprimer le channel</span>
+                </button>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- end modal config channel -->
+
+
+
+<!-- Modale de configuration des channels -->
+<div class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+     id="modal-edit-channels-config">
+    <div class="bg-gray-800 text-white w-full max-w-md rounded-lg shadow-lg p-6 space-y-4 border border-gray-700">
+        <h2 class="text-xl font-bold">🔧 Créer un channel</h2>
+        <div>
+            <input
+                    type="text"
+                    class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Nom du channel (#general)"
+                    id="new-channel-name"
+            />
+        </div>
+        <div class="text-right space-x-2">
+            <button
+                    onclick="document.getElementById('modal-edit-channels-config').classList.add('hidden')"
+                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">
+                Fermer
+            </button>
+            <button
+                    onclick="MessageAPI.createThread()"
+                    id="create-thread-btn"
+                    class="ml-2 mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                <div class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Ajouter</span>
+            </button>
+        </div>
+    </div>
+</div>
+<script src="/ipfs/QmcSG2fLG6gc55vGf1P1dcfcmZcVqLsn2bUqPc34kiB7tN"></script>
+<!-- unicode --><!-- Core scripts -->
+<script src="/parser/graph/javascript/0b6a9301-cb03-4887-bdca-1170d13f21e5"></script>
+<!-- App eventManager -->
+<script src="/parser/graph/javascript/e16712e4-4141-4dd3-ac0f-3e7409890737"></script>
+<!-- gravity/graph -->
+<script src="/parser/graph/javascript/65bb8f2d-1bc8-419f-8d34-aac5242e4d0c"></script>
+<!-- gravity/singularity -->
+<script src="/parser/graph/javascript/e0911760-0959-4f6e-8214-5a140ff334cf"></script>
+<!-- gravity/blackhole -->
+<script src="/parser/graph/javascript/14b3fc37-e1dd-4b21-be23-a461efa2d910"></script>
+<!-- gravity/wormhole -->
+<script src="/parser/graph/javascript/0937e794-b49c-42df-8177-c99c0c722b13"></script>
+<script src="/parser/graph/javascript/d6745478-31bb-482d-b7cd-5875e71263ea"></script>
+<!-- core/MessagesAPI.js -->
+<script src="/parser/graph/javascript/664cfc59-e266-4c6e-bab1-8efe877717bc"></script>
+<!-- core/UIManager.js -->
+<script src="/parser/graph/javascript/23b914fa-9209-4afc-858c-f4ff9b6787d3"></script>
+<!-- app.js -->
+</body>
+
+</html>
