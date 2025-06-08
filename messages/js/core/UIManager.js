@@ -10,13 +10,7 @@ function formatTimestamp(ts) {
     const minutes = date.getMinutes().toString().padStart(2, "0");
     return `${day} ${month} ${hours}:${minutes}`;
 }
-
-let editChannelState = {
-    id: null,
-    name: "",
-    users: [], // tableau d'adresses
-};
-
+let editChannelState = { id: null, name: "", users: [] };
 const UIManager = {
     selectedChannel: undefined,
     editChannel: function (id, name, authorizedString) {
@@ -25,7 +19,6 @@ const UIManager = {
         editChannelState.users = authorizedString
             ? authorizedString.split(";").filter(Boolean)
             : [];
-
         document.getElementById("edit-chan-name").value = name;
         UIManager.refreshUserListUI();
         document.getElementById("modal-edit-chan").classList.remove("hidden");
@@ -46,24 +39,19 @@ const UIManager = {
         <span class="truncate">${userProfile.object.graphName} <span class="text-slate-400 text-xs">${userAddr}</span></span>
         <button onclick="UIManager.removeUserFromChannel('${userAddr}')" class="text-red-400 hover:text-red-600">✖</button>
       `;
-            })
+            });
             list.appendChild(li);
         });
     },
-
     saveChannelEdition: function () {
         const id = editChannelState.id;
         const name = document.getElementById("edit-chan-name").value.trim();
         const authorized = editChannelState.users.join(";") + ";";
-
         if (!name || !id) return;
-
         console.log("name: ", name);
         console.log("authorized: ", authorized);
-
         document.getElementById("modal-edit-chan").classList.add("hidden");
     },
-
     addUserToChannel: function () {
         const input = document.getElementById("edit-chan-user-input");
         const addr = input.value.trim();
@@ -73,7 +61,6 @@ const UIManager = {
             input.value = "";
         }
     },
-
     removeUserFromChannel: function (addr) {
         editChannelState.users = editChannelState.users.filter((u) => u !== addr);
         UIManager.refreshUserListUI();
@@ -84,9 +71,9 @@ const UIManager = {
         channels.forEach((elem) => {
             const authorized = elem.object["thread-authorized_users"] || "";
             if (!authorized.includes(userAddress + ";") && !isPM) {
+                console.log("user is not authorized")
                 return;
             }
-
             const chanEntry = document.createElement("li");
             chanEntry.id = elem.object.id;
             chanEntry.classList.add(
@@ -98,15 +85,17 @@ const UIManager = {
                 "hover:bg-gray-600",
                 "chanLoader"
             );
-            chanEntry.textContent = `# ${elem.object['thread-name']}`;
+            chanEntry.textContent = `# ${elem.object["thread-name"]}`;
             chanEntry.addEventListener("click", () => {
                 UIManager.selectChannel(elem);
             });
+            console.log("adding thread to container: ", channelContainer.id)
             channelContainer.appendChild(chanEntry);
         });
     },
     showMessages: function (messages, users, currentUserAddress) {
         const container = document.getElementById("message-list");
+        container.innerHTML = ''
         messages.forEach((msg) => {
             const targetUser = users[msg.author];
             if (!targetUser) {
@@ -130,33 +119,40 @@ const UIManager = {
         }
     },
     selectChannel: function (channel) {
-        UIManager.selectedChannel = channel
+        UIManager.selectedChannel = channel;
         localStorage.setItem("selectedThread", channel.object.id);
-        // 1. Supprime la classe active des autres
         document.querySelectorAll("#channel-list li").forEach((li) => {
             li.classList.remove("bg-gray-600", "font-bold", "text-white");
         });
-
-        // 2. Cible et active le bon <li>
         const selected = document.querySelector(
             `#channel-list li[id='${channel.object.id}']`
         );
         if (selected) {
             selected.classList.add("bg-gray-600", "font-bold", "text-white");
         }
-
         document.getElementById(
             "channel-title"
-        ).textContent = `# ${channel.object['thread-name']}`;
-        MessageAPI.loadUsers(channel.object["thread-authorized_users"] ?? "").then(
-            (users) => {
-                MessageAPI.getMessages(channel.object.id).then((messages) => {
-                    const container = document.getElementById("message-list");
-                    container.innerHTML = "";
-                    UIManager.showMessages(messages, users, MessageAPI.userAddress);
-                });
-            }
-        );
+        ).textContent = `# ${channel.object["thread-name"]}`;
+        const users = (channel.children() || [])
+            .map((msg) => {
+                return msg.object["msg-author"];
+            })
+            .join(";");
+        MessageAPI.loadUsers(
+            users + ";" + channel.object["thread-authorized_users"] ?? ""
+        ).then((users) => {
+            MessageAPI.getMessages(channel.object.id).then((messages) => {
+                const container = document.getElementById("message-list");
+                container.innerHTML = "";
+                UIManager.showMessages(messages, users, MessageAPI.userAddress);
+            });
+        });
+    },
+    getSafeProfilePicture: function (userObject) {
+        return userObject["profilePictureURL"] &&
+        userObject["profilePictureURL"].trim().length > 0
+            ? userObject["profilePictureURL"]
+            : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2RkZGRkZCIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjIwIiBmaWxsPSIjOTk5OTk5Ii8+PHJlY3QgeT0iNjAiIHdpZHRoPSI3MCIgaGVpZ2h0PSI0MCIgeD0iMTUiIGZpbGw9IiM5OTk5OTkiIHJ4PSIxNSIvPjwvc3ZnPg==";
     },
     _buildUserMsg: function (msg, user) {
         const msgContainer = document.createElement("div");
@@ -169,7 +165,8 @@ const UIManager = {
             "bg-gray-600"
         );
         const userImg = document.createElement("img");
-        userImg.src = user.object["profilePictureURL"];
+        userImg.classList.add("rounded-full");
+        userImg.src = UIManager.getSafeProfilePicture(user.object);
         userIconContainer.appendChild(userImg);
         const msgGroup = document.createElement("div");
         const dateAndUserName = document.createElement("div");
@@ -221,8 +218,21 @@ const UIManager = {
             "bg-blue-600"
         );
         const userImg = document.createElement("img");
-        userImg.src = user.object["profilePictureURL"];
+        userImg.classList.add("rounded-full");
+        userImg.src = UIManager.getSafeProfilePicture(user.object);
         userIconContainer.appendChild(userImg);
+        userIconContainer.addEventListener("click", () => {
+            const profileModal = document.getElementById("modal-profile");
+            const profileName = document.getElementById("profile-name");
+            const profilePicture = document.getElementById("profile-picture");
+            const profileDescription = document.getElementById("profile-description")
+
+            profileName.textContent = convertHtmlCodesToAccents(user.object.graphName);
+            profilePicture.src = user.object["profilePictureURL"];
+
+            profileDescription.textContent = convertHtmlCodesToAccents(user.object["description"])
+            profileModal.classList.remove("hidden");
+        });
         msgContainer.appendChild(msgGroup);
         msgContainer.appendChild(userIconContainer);
         return msgContainer;
@@ -230,88 +240,79 @@ const UIManager = {
     confirmDeleteThread: function () {
         const threadID = editChannelState.id;
         const threadName = document.getElementById("edit-chan-name").value.trim();
-
         const btn = document.getElementById("delete-thread-btn");
         const spinner = btn.querySelector(".spinner");
         const label = btn.querySelector("span");
-
-
         if (!threadID || !threadName) return;
-
-        const ok = confirm(`⚠️ Voulez-vous vraiment supprimer le channel « ${threadName} » ? Cette action est irréversible.`);
+        const ok = confirm(
+            `⚠️ Voulez-vous vraiment supprimer le channel « ${threadName} » ? Cette action est irréversible.`
+        );
         if (!ok) return;
-
-
-        // Spinner ON
         btn.disabled = true;
         spinner.classList.remove("hidden");
         label.textContent = "Suppression...";
-
         MessageAPI.deleteThread(threadID)
             .then(() => {
                 document.getElementById("modal-edit-chan").classList.add("hidden");
-
-
-                Blackhole.getGraph(MessagesGraphID).then(graph => {
-                    // Si on était dessus, on nettoie la vue active
+                Blackhole.getGraph(MessagesGraphID).then((graph) => {
                     if (localStorage.getItem("selectedThread") === threadID) {
                         document.getElementById("channel-title").textContent = "";
                         document.getElementById("message-list").innerHTML = "";
-                        localStorage.removeItem("selectedThread")
+                        localStorage.removeItem("selectedThread");
                     }
                     const channelsNode = graph.children();
-                    UIManager.showChannels(channelsNode, MessageAPI.userAddress, MessageAPI.isPM);
+                    UIManager.showChannels(
+                        channelsNode,
+                        MessageAPI.userAddress,
+                        MessageAPI.isPM
+                    );
                     if (channelsNode.length > 0) {
-                        UIManager.selectChannel(channelsNode[0])
+                        UIManager.selectChannel(channelsNode[0]);
                     }
                 });
-
-
             })
             .catch((err) => {
                 alert("⛔ Échec de suppression : " + err);
-            }).finally(() => {
-            // Reset bouton
-            btn.disabled = false;
-            spinner.classList.add("hidden");
-            label.textContent = "Supprimer le channel";
-        });
+            })
+            .finally(() => {
+                btn.disabled = false;
+                spinner.classList.add("hidden");
+                label.textContent = "Supprimer le channel";
+            });
     },
     saveChannelEdition: function () {
         const btn = document.getElementById("save-channel-btn");
         const spinner = btn.querySelector(".spinner");
         const label = btn.querySelector("span");
-
         btn.disabled = true;
         spinner.classList.remove("hidden");
         label.textContent = "Enregistrement...";
-
         const id = editChannelState.id;
         const name = document.getElementById("edit-chan-name").value.trim();
         const authorized = editChannelState.users.join(";") + ";";
-
         if (!id || !name || !authorized) {
             alert("Nom ou utilisateurs manquants.");
             resetSaveButton();
             return;
         }
-
         MessageAPI.editThread(id, name, authorized)
             .then(() => {
                 document.getElementById("modal-edit-chan").classList.add("hidden");
-
-                Blackhole.getGraph(MessagesGraphID).then(graph => {
+                Blackhole.getGraph(MessagesGraphID).then((graph) => {
                     const channelsNode = graph.children();
-                    UIManager.showChannels(channelsNode, MessageAPI.userAddress, MessageAPI.isPM);
+                    UIManager.showChannels(
+                        channelsNode,
+                        MessageAPI.userAddress,
+                        MessageAPI.isPM
+                    );
                 });
             })
-            .catch(err => {
+            .catch((err) => {
                 alert("⛔ Erreur : " + err);
             })
             .finally(() => {
                 resetSaveButton();
             });
-
         function resetSaveButton() {
             btn.disabled = false;
             spinner.classList.add("hidden");

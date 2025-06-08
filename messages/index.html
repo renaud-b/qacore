@@ -1,131 +1,170 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" style="height: 100%;background-color:#1F2937">
 
 <head>
     <meta charset="UTF-8" />
-    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Messagerie – QACore</title>
-    <meta content="architect" name="guilds" />
-    <meta content="prod" name="mode" />
+    <meta name="guilds" content="project-manager,QACore" />
+    <meta name="mode" content="prod" />
+    <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/ipfs/QmUR7vyGS4BTh8SnggNHC7HtQBvhtZighoy2bbjAXyAUpS" rel="icon" />
 </head>
 
-<body height="750" class="bg-gray-900 text-white h-screen flex font-sans" width="500">
+<body class="relative min-h-screen flex flex-col font-sans bg-gray-900 text-white" height="750" width="500"
+      style="height: 100%;background-color:#1F2937">
 <!-- Bouton burger, visible seulement en mobile --><button
         class="md:hidden fixed top-1 left-2 z-50 bg-gray-800 text-white px-3 py-2 rounded"
         id="toggle-sidebar"
 >
     ☰</button><!-- Sidebar -->
-<aside
-        class="fixed md:static inset-y-0 left-0 w-64 bg-gray-800 p-4 flex flex-col space-y-2 transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40"
-        id="sidebar">
+<div id="sidebar"
+     class="fixed inset-y-0 left-0 md:w-64 w-64 bg-gray-800 p-4 space-y-2 transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40 h-full" style="100%:">
     <h1 class="text-xl font-bold mb-4 ml-10">📡 Channels</h1>
-    <ul class="space-y-1 overflow-y-auto max-h-[calc(100vh-10rem)] pr-1" id="channel-list"></ul>
-    <!-- Bouton visible seulement pour le PM --><button
-        class="mt-auto bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-600 hidden admin-btn flex flex-row"
-        id="config-channels"
->
-    <span class="text-xl">＋</span>
-    <span class="pl-2">Ajouter un channel</span>
-</button>
-</aside>
-<div class="fixed inset-0 bg-black bg-opacity-50 hidden md:hidden z-30" id="sidebar-backdrop"
+    <!-- Bouton visible seulement pour le PM -->
+    <button
+            class="mt-auto bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-600 hidden admin-btn flex flex-row w-full"
+            id="config-channels"
+    >
+        <span class="text-xl">＋</span><span class="pl-2">Ajouter un channel</span>
+    </button>
+    <ul class="space-y-1 overflow-y-auto" id="channel-list" style="height: 100%"></ul>
+
+</div>
+<div class="md:hidden fixed inset-0 bg-black bg-opacity-50 hidden z-30" id="sidebar-backdrop"
      onclick="toggleSidebar(false)"></div>
 <!-- Main chat area -->
-<main class="flex-1 flex flex-col">
+<div class="md:ml-64 transition-all duration-300">
     <!-- Header -->
-    <div class="bg-gray-800 px-4 py-3 border-b border-gray-700 flex flex-row">
-        <h2 class="text-lg font-semibold ml-10" id="channel-title">
+    <div class="fixed w-full bg-gray-800 px-4 py-3 border-b border-gray-700 flex flex-row">
+        <h2 id="channel-title" class="text-lg font-semibold ml-10">
             # général
         </h2>
         <!-- Bouton visible seulement pour le PM --><button
             class="ml-2 text-white pl-2 pr-2 hover:bg-gray-600 rounded hidden admin-btn"
             id="config-channel"
-    >⚙️</button>
+    >
+        ⚙️
+    </button>
     </div>
     <!-- Message list -->
-    <div id="message-list" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-900"></div>
+    <div id="message-list" class="overflow-y-auto px-4 pb-24 h-full" style="padding-top: 100px"></div>
     <!-- Message input -->
-    <div class="border-t border-gray-700 p-4 bg-gray-800">
+    <div class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 p-4 md:pl-64">
         <div class="flex gap-2">
             <input
-                    class="flex-1 px-4 py-2 bg-gray-700 rounded text-white focus:outline-none"
-                    type="text"
-                    id="chat-input"
                     placeholder="Écris ton message..."
+                    type="text"
+                    class="flex-1 px-4 py-2 bg-gray-700 rounded text-white focus:outline-none"
+                    id="chat-input"
             /><button class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">
             Envoyer
         </button>
         </div>
     </div>
-</main>
+</div>
+<!-- Modale Profil Utilisateur -->
+<div id="modal-profile" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-gray-800 text-white w-full max-w-sm rounded-lg shadow-lg p-6 space-y-4 border border-gray-700 text-center">
+        <h2 id="profile-name" class="text-xl font-bold mb-4">Mon Profil</h2>
+        <img id="profile-picture" class="w-24 h-24 rounded-full mx-auto mb-4" src="" alt="Profile" />
+        <p id="profile-description" class="text-sm mb-4 text-slate-500 italic"></p>
+        <button id="btn-disconnect" class="w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+            🚪 Se déconnecter
+        </button>
+        <button onclick="document.getElementById('modal-profile').classList.add('hidden')" class="mt-2 text-sm text-gray-400 hover:text-gray-200">
+            Annuler
+        </button>
+    </div>
+</div>
 <!-- modal config channel -->
-<div id="modal-edit-chan" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+<div class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" id="modal-edit-chan">
     <div class="bg-gray-800 text-white w-full max-w-md rounded-lg shadow-lg p-6 space-y-4 border border-gray-700">
         <h2 class="text-xl font-bold">✏️ Modifier le channel</h2>
-
-        <input id="edit-chan-name" type="text" placeholder="Nom du channel" class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
-
+        <input
+                class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                id="edit-chan-name"
+                placeholder="Nom du channel"
+                type="text"
+        />
         <div>
             <label class="block mb-1">Utilisateurs autorisés</label>
-            <ul id="edit-chan-user-list" class="space-y-1 mb-3">
+            <ul class="space-y-1 mb-3" id="edit-chan-user-list">
                 <!-- utilisateurs générés ici -->
             </ul>
             <div class="flex gap-2">
-                <input id="edit-chan-user-input" type="text" placeholder="Adresse à ajouter" class="flex-1 px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <button onclick="UIManager.addUserToChannel()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Ajouter</button>
+                <input
+                        class="flex-1 px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        id="edit-chan-user-input"
+                        type="text"
+                        placeholder="Adresse à ajouter"
+                /><button
+                    class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                    onclick="UIManager.addUserToChannel()"
+            >
+                Ajouter
+            </button>
             </div>
         </div>
-
         <div class="text-right space-x-2">
             <button
+                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
                     onclick="document.getElementById('modal-edit-chan').classList.add('hidden')"
-                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Annuler</button>
-            <button id="save-channel-btn" onclick="UIManager.saveChannelEdition()" class="ml-2 mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                <div class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Enregistrer</span>
-            </button>
+            >
+                Annuler</button><button
+                onclick="UIManager.saveChannelEdition()"
+                class="ml-2 mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                id="save-channel-btn"
+        >
+            <div
+                    class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
+            ></div>
+            <span>Enregistrer</span>
+        </button>
             <div class="border-t border-gray-600 pt-4 mt-4 text-right flex flex-row-reverse">
-                <button id="delete-thread-btn" onclick="UIManager.confirmDeleteThread()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 justify-center">
-                    <div class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <button
+                        id="delete-thread-btn"
+                        onclick="UIManager.confirmDeleteThread()"
+                        class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 justify-center"
+                >
+                    <div
+                            class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
+                    ></div>
                     <span>Supprimer le channel</span>
                 </button>
-
             </div>
-
         </div>
     </div>
 </div>
-<!-- end modal config channel -->
-
-
-
-<!-- Modale de configuration des channels -->
+<!-- end modal config channel --><!-- Modale de configuration des channels -->
 <div class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
      id="modal-edit-channels-config">
     <div class="bg-gray-800 text-white w-full max-w-md rounded-lg shadow-lg p-6 space-y-4 border border-gray-700">
         <h2 class="text-xl font-bold">🔧 Créer un channel</h2>
         <div>
             <input
-                    type="text"
                     class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Nom du channel (#general)"
                     id="new-channel-name"
+                    type="text"
             />
         </div>
         <div class="text-right space-x-2">
             <button
+                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
                     onclick="document.getElementById('modal-edit-channels-config').classList.add('hidden')"
-                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">
-                Fermer
-            </button>
-            <button
-                    onclick="MessageAPI.createThread()"
-                    id="create-thread-btn"
-                    class="ml-2 mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                <div class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Ajouter</span>
-            </button>
+            >
+                Fermer</button><button
+                class="ml-2 mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                id="create-thread-btn"
+                onclick="MessageAPI.createThread()"
+        >
+            <div
+                    class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
+            ></div>
+            <span>Ajouter</span>
+        </button>
         </div>
     </div>
 </div>

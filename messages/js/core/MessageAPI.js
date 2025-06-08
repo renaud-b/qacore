@@ -1,7 +1,107 @@
+const MessageAPIErrors = {
+    TX_INVALID: "TX_INVALID",
+    USER_NOT_FOUND: "USER_NOT_FOUND",
+    UNKNOWN_ERROR: "UNKNOWN_ERROR",
+    API_ERROR: "API_ERROR"
+};
+
+
+
 const MessageAPI = {
     scriptID: "a3d7bd5d-8eb0-4c7c-93bb-f0b3eabe56bb",
     userAddress: null,
     eventManager: null,
+    registerUser: function () {
+        return new Promise((resolve, reject) => {
+            if (
+                !MessageAPI.scriptID ||
+                !MessageAPI.userAddress ||
+                !MessageAPI.eventManager
+            ) {
+                reject(MessageAPIErrors.TX_INVALID);
+                return;
+            }
+
+            const payload = {
+                requestType: "register-user",
+                timestamp: Date.now()
+            };
+
+            const encodedPayload = btoa(JSON.stringify(payload));
+
+            MessageAPI.eventManager
+                .sign(MessageAPI.userAddress, encodedPayload, 0)
+                .then((signedTx) => {
+                    const encodedUserTx = btoa(JSON.stringify(signedTx));
+
+                    return Wormhole.executeContract(
+                        MessageAPI.scriptID,
+                        "RegisterUser",
+                        { encodedUserTx }
+                    );
+                })
+                .then((response) => {
+                    if (response.status !== "ok" && response.status !== "user_already_exists") {
+                        // On reject avec un code lisible
+                        reject(MessageAPIErrors.API_ERROR);
+                    } else {
+                        resolve(response); // On laisse le caller parser response.status
+                    }
+                })
+                .catch((err) => {
+                    console.error("Erreur MessageAPI.registerUser:", err);
+                    reject(MessageAPIErrors.UNKNOWN_ERROR);
+                });
+        });
+    },
+    getGroupsForUser: function () {
+        return new Promise((resolve, reject) => {
+            if (
+                !MessageAPI.scriptID ||
+                !MessageAPI.userAddress ||
+                !MessageAPI.eventManager
+            ) {
+                reject(MessageAPIErrors.TX_INVALID);
+                return;
+            }
+
+            const payload = {
+                requestType: "get-groups-for-user",
+                timestamp: Date.now()
+            };
+
+            const encodedPayload = btoa(JSON.stringify(payload));
+
+            MessageAPI.eventManager
+                .sign(MessageAPI.userAddress, encodedPayload, 0)
+                .then((signedTx) => {
+                    const encodedUserTx = btoa(JSON.stringify(signedTx));
+
+                    return Wormhole.executeContract(
+                        MessageAPI.scriptID,
+                        "GetGroupsForUser",
+                        { encodedUserTx }
+                    );
+                })
+                .then((response) => {
+                    if (response.status !== "ok") {
+                        // Ici on peut utiliser response.message pour mapper vers nos constantes
+                        if (response.message === "user_not_found") {
+                            reject(MessageAPIErrors.USER_NOT_FOUND);
+                        } else {
+                            reject(MessageAPIErrors.API_ERROR);
+                        }
+                    } else {
+                        resolve(response.userNode); // On renvoie directement userNode
+                    }
+                })
+                .catch((err) => {
+                    console.error("Erreur MessageAPI.getGroupsForUser:", err);
+                    reject(MessageAPIErrors.UNKNOWN_ERROR);
+                });
+        });
+    },
+
     getMessages: function (threadID) {
         return new Promise((resolve, reject) => {
             if (
@@ -32,7 +132,18 @@ const MessageAPI = {
                     if (response.status !== "ok") {
                         reject(response.message || "Erreur inconnue");
                     } else {
-                        resolve(response.messages || []);
+                        if (response.messages.length == 0) {
+                            resolve([]);
+                        } else {
+                            const users = (response.messages || [])
+                                .map((msg) => {
+                                    return msg.autho;
+                                })
+                                .join(";");
+                            MessageAPI.loadUsers(users).then((e) => {
+                                resolve(response.messages || []);
+                            });
+                        }
                     }
                 })
                 .catch((err) => {
@@ -100,69 +211,74 @@ const MessageAPI = {
         const input = document.getElementById("new-channel-name");
         const rawName = input.value.trim().replace(/^#/, "");
         if (!rawName) return;
-
         const payload = {
             requestType: "create-thread",
             name: rawName,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         };
-
         const encodedPayload = btoa(JSON.stringify(payload));
-
-        MessageAPI.eventManager.sign(MessageAPI.userAddress, encodedPayload, 0).then((signedTx) => {
-            const encodedUserTx = btoa(JSON.stringify(signedTx));
-
-            Wormhole.executeContract("a3d7bd5d-8eb0-4c7c-93bb-f0b3eabe56bb", "CreateThread", { encodedUserTx: encodedUserTx }, "https://utopixia.com").then((res) => {
-                if (res.status === "ok") {
-                    const btn = document.getElementById("create-thread-btn")
-                    const spinner = btn.querySelector(".spinner");
-                    const label = btn.querySelector("span");
-
-                    btn.disabled = true;
-                    spinner.classList.remove("hidden");
-                    label.textContent = "Ajout...";
-
-
-                    function resetSaveButton() {
-                        btn.disabled = false;
-                        spinner.classList.add("hidden");
-                        label.textContent = "Ajouter";
-                    }
-
-
-                    input.value = "";
-                    Singularity.waitForTx(res.tx[0]).then((e) => {
-                        Blackhole.getGraph(MessagesGraphID).then(graph => {
-                            document.getElementById('modal-edit-channels-config').classList.add('hidden')
-
-                            const channelsNode = graph.children();
-                            UIManager.showChannels(channelsNode, MessageAPI.userAddress, MessageAPI.isPM);
-
-                        }).finally(() => {
-                            resetSaveButton();
+        MessageAPI.eventManager
+            .sign(MessageAPI.userAddress, encodedPayload, 0)
+            .then((signedTx) => {
+                const encodedUserTx = btoa(JSON.stringify(signedTx));
+                Wormhole.executeContract(
+                    "a3d7bd5d-8eb0-4c7c-93bb-f0b3eabe56bb",
+                    "CreateThread",
+                    { encodedUserTx: encodedUserTx },
+                    "https://utopixia.com"
+                ).then((res) => {
+                    if (res.status === "ok") {
+                        const btn = document.getElementById("create-thread-btn");
+                        const spinner = btn.querySelector(".spinner");
+                        const label = btn.querySelector("span");
+                        btn.disabled = true;
+                        spinner.classList.remove("hidden");
+                        label.textContent = "Ajout...";
+                        function resetSaveButton() {
+                            btn.disabled = false;
+                            spinner.classList.add("hidden");
+                            label.textContent = "Ajouter";
+                        }
+                        input.value = "";
+                        Singularity.waitForTx(res.tx[0]).then((e) => {
+                            Blackhole.getGraph(MessagesGraphID)
+                                .then((graph) => {
+                                    document
+                                        .getElementById("modal-edit-channels-config")
+                                        .classList.add("hidden");
+                                    const channelsNode = graph.children();
+                                    UIManager.showChannels(
+                                        channelsNode,
+                                        MessageAPI.userAddress,
+                                        MessageAPI.isPM
+                                    );
+                                })
+                                .finally(() => {
+                                    resetSaveButton();
+                                });
                         });
-                    })
-                } else {
-                    alert("⛔ Erreur : " + (res.message || "Inconnue"));
-                }
+                    } else {
+                        alert("⛔ Erreur : " + (res.message || "Inconnue"));
+                    }
+                });
             });
-        });
     },
     deleteThread: function (threadID) {
         return new Promise((resolve, reject) => {
-            if (!MessageAPI.scriptID || !MessageAPI.userAddress || !MessageAPI.eventManager) {
+            if (
+                !MessageAPI.scriptID ||
+                !MessageAPI.userAddress ||
+                !MessageAPI.eventManager
+            ) {
                 reject("Configuration incomplète");
                 return;
             }
-
             const payload = {
                 requestType: "delete-thread",
                 thread: threadID,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             };
-
             const encodedPayload = btoa(JSON.stringify(payload));
-
             MessageAPI.eventManager
                 .sign(MessageAPI.userAddress, encodedPayload, 0)
                 .then((signedTx) => {
@@ -176,7 +292,7 @@ const MessageAPI = {
                 })
                 .then((response) => {
                     if (response.status === "ok") {
-                        Singularity.waitForTx(response.tx[0]).then(resolve).catch(reject)
+                        Singularity.waitForTx(response.tx[0]).then(resolve).catch(reject);
                     } else {
                         reject(response.message || "Erreur inconnue");
                     }
@@ -190,8 +306,8 @@ const MessageAPI = {
     loadUsers: function (rawUserList) {
         return new Promise((resolve, reject) => {
             if (!rawUserList) {
-                resolve({})
-                return
+                resolve({});
+                return;
             }
             const users = rawUserList.split(";");
             const promises = users
@@ -219,21 +335,22 @@ const MessageAPI = {
     },
     editThread: function (threadID, newName, newAuthorizedString) {
         return new Promise((resolve, reject) => {
-            if (!MessageAPI.scriptID || !MessageAPI.userAddress || !MessageAPI.eventManager) {
+            if (
+                !MessageAPI.scriptID ||
+                !MessageAPI.userAddress ||
+                !MessageAPI.eventManager
+            ) {
                 reject("Configuration incomplète");
                 return;
             }
-
             const payload = {
                 requestType: "edit-thread",
                 thread: threadID,
                 newName: newName,
                 authorized: newAuthorizedString,
-                timestamp: Date.now()
+                timestamp: Date.now(),
             };
-
             const encodedPayload = btoa(JSON.stringify(payload));
-
             MessageAPI.eventManager
                 .sign(MessageAPI.userAddress, encodedPayload, 0)
                 .then((signedTx) => {
@@ -247,7 +364,7 @@ const MessageAPI = {
                 })
                 .then((response) => {
                     if (response.status === "ok") {
-                        Singularity.waitForTx(response.tx[0]).then(resolve).catch(reject)
+                        Singularity.waitForTx(response.tx[0]).then(resolve).catch(reject);
                     } else {
                         reject(response.message || "Erreur inconnue");
                     }
