@@ -4,23 +4,21 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Messagerie – QACore</title>
+    <title>Messagerie</title>
     <meta name="guilds" content="project-manager,QACore" />
     <meta name="mode" content="prod" />
     <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="/ipfs/QmUR7vyGS4BTh8SnggNHC7HtQBvhtZighoy2bbjAXyAUpS" rel="icon" />
+    <script src="https://kit.fontawesome.com/ab44efbce6.js" crossorigin="anonymous"></script>
 </head>
 
 <body class="relative min-h-screen flex flex-col font-sans bg-gray-900 text-white" height="750" width="500"
       style="height: 100%;background-color:#1F2937">
-<!-- Bouton burger, visible seulement en mobile --><button
-        class="md:hidden fixed top-1 left-2 z-50 bg-gray-800 text-white px-3 py-2 rounded"
-        id="toggle-sidebar"
->
-    ☰</button><!-- Sidebar -->
+
 <div id="sidebar"
-     class="fixed inset-y-0 left-0 md:w-64 w-64 bg-gray-800 p-4 space-y-2 transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40 h-full" style="100%:">
+     class="fixed inset-y-0 left-0 md:w-64 w-64 bg-gray-800 p-4 space-y-2 transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40 h-full"
+     style="100%:">
     <h1 class="text-xl font-bold mb-4 ml-10">📡 Channels</h1>
     <!-- Bouton visible seulement pour le PM -->
     <button
@@ -34,39 +32,125 @@
 </div>
 <div class="md:hidden fixed inset-0 bg-black bg-opacity-50 hidden z-30" id="sidebar-backdrop"
      onclick="toggleSidebar(false)"></div>
-<!-- Main chat area -->
-<div class="md:ml-64 transition-all duration-300">
-    <!-- Header -->
-    <div class="fixed w-full bg-gray-800 px-4 py-3 border-b border-gray-700 flex flex-row">
-        <h2 id="channel-title" class="text-lg font-semibold ml-10">
-            # général
-        </h2>
-        <!-- Bouton visible seulement pour le PM --><button
-            class="ml-2 text-white pl-2 pr-2 hover:bg-gray-600 rounded hidden admin-btn"
-            id="config-channel"
-    >
-        ⚙️
-    </button>
+
+
+<!-- Wrapper général des screens -->
+<div id="screens-wrapper" class="relative w-full h-full overflow-hidden">
+
+    <!-- Screen 1 : Liste des groupes -->
+    <div id="screen-groups"
+         class="fixed inset-0 transition-transform duration-500 translate-x-0 z-10 bg-gray-900 w-full h-full">
+        <h1 class="text-xl font-bold px-6 py-4 border-b border-gray-700">👥 Mes groupes</h1>
+        <ul id="groups-list" class="p-4 space-y-2 overflow-y-auto" style="height: calc(100% - 64px);">
+            <!-- groupes dynamiques ici -->
+        </ul>
     </div>
-    <!-- Message list -->
-    <div id="message-list" class="overflow-y-auto px-4 pb-24 h-full" style="padding-top: 100px"></div>
-    <!-- Message input -->
-    <div class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 p-4 md:pl-64">
-        <div class="flex gap-2">
-            <input
-                    placeholder="Écris ton message..."
-                    type="text"
-                    class="flex-1 px-4 py-2 bg-gray-700 rounded text-white focus:outline-none"
-                    id="chat-input"
-            /><button class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">
-            Envoyer
-        </button>
+
+    <!-- Screen 2 : Group View -->
+    <div id="screen-group-view"
+         class="fixed inset-0 transition-transform duration-500 translate-x-full z-20 bg-gray-900 flex flex-row">
+
+        <!-- Colonne gauche : liste des groupes -->
+        <div class="max-w-[200px] w-full md:max-w-[200px] md:w-64 border-r border-gray-700 bg-gray-800 p-4 space-y-2 overflow-y-auto">
+            <h2 class="text-xl font-bold mb-4">📚 Groupes</h2>
+            <ul id="groupview-groups-list" class="space-y-2">
+                <!-- Groupes dynamiques -->
+            </ul>
+        </div>
+
+        <!-- Colonne droite : liste des threads du groupe sélectionné -->
+        <div class="flex-1 p-4 flex flex-col">
+            <div class="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
+                <h2 id="groupview-current-group-name" class="text-lg font-semibold">Groupe sélectionné</h2>
+
+            </div>
+            <ul id="groupview-threads-list" class="flex-1 overflow-y-auto space-y-2">
+                <!-- Threads dynamiques -->
+            </ul>
+        </div>
+
+    </div>
+
+    <!-- Screen 3 : Main chat area (refacto de ton main actuel) -->
+    <div id="screen-chat"
+         class="fixed inset-0 transition-transform duration-500 translate-x-full z-20 bg-gray-900 w-full h-full flex flex-col">
+        <!-- Main chat area -->
+        <div class="md:ml-64 transition-all duration-300 flex flex-col h-full">
+            <!-- Header -->
+            <div class="w-full bg-gray-800 px-4 py-3 border-b border-gray-700 flex flex-row items-center">
+                <!-- Bouton retour vers la liste des groupes -->
+                <button id="btn-back-to-groups" class="mr-2 text-white px-2 py-1 rounded hover:bg-gray-700">
+                    <i class="fas fa-home"></i>
+                </button>
+                <h2 id="channel-title" class="text-lg font-semibold flex-1">
+                    # général
+                </h2>
+                <!-- Bouton visible seulement pour le PM -->
+                <button
+                        class="ml-2 text-white pl-2 pr-2 hover:bg-gray-600 rounded hidden admin-btn"
+                        id="config-channel"
+                >
+                    ⚙️
+                </button>
+            </div>
+
+            <!-- Message list -->
+            <div id="message-list" class="flex-1 overflow-y-auto px-4 py-4 space-y-2"></div>
+
+            <!-- Message input -->
+            <div class="w-full bg-gray-800 border-t border-gray-700 p-4">
+                <div class="flex gap-2">
+                    <input
+                            placeholder="Écris ton message..."
+                            type="text"
+                            class="flex-1 px-4 py-2 bg-gray-700 rounded text-white focus:outline-none"
+                            id="chat-input"
+                    />
+                    <button class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">
+                        Envoyer
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="screen-public-groups"
+         class="fixed inset-0 transition-transform duration-500 translate-x-full z-20 bg-gray-900 flex flex-col">
+        <h1 class="text-xl font-bold px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+            🔍 Groupes publics
+            <button id="btn-back-to-group-view" class="text-sm bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-600">← Retour</button>
+        </h1>
+        <ul id="public-groups-list" class="p-4 space-y-2 overflow-y-auto flex-1">
+            <!-- Groupes publics dynamiques -->
+        </ul>
+    </div>
+
+</div>
+
+<!-- Modal de démarrage conversation -->
+<div id="modal-start-conversation"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-gray-800 text-white w-full max-w-md rounded-lg shadow-lg p-6 space-y-4 border border-gray-700">
+        <h2 class="text-xl font-bold">👥 Choisir un contact</h2>
+        <ul id="contacts-list" class="space-y-2 max-h-80 overflow-y-auto">
+            <!-- Contacts dynamiques -->
+        </ul>
+        <div class="text-right">
+            <button
+                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
+                    onclick="closeStartConversationModal()"
+            >
+                Fermer
+            </button>
         </div>
     </div>
 </div>
+
 <!-- Modale Profil Utilisateur -->
 <div id="modal-profile" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-gray-800 text-white w-full max-w-sm rounded-lg shadow-lg p-6 space-y-4 border border-gray-700 text-center">
+    <div
+            class="bg-gray-800 text-white w-full max-w-sm rounded-lg shadow-lg p-6 space-y-4 border border-gray-700 text-center">
         <h2 id="profile-name" class="text-xl font-bold mb-4">Mon Profil</h2>
         <img id="profile-picture" class="w-24 h-24 rounded-full mx-auto mb-4" src="" alt="Profile" />
         <p id="profile-description" class="text-sm mb-4 text-slate-500 italic"></p>
@@ -158,7 +242,7 @@
                 Fermer</button><button
                 class="ml-2 mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                 id="create-thread-btn"
-                onclick="MessageAPI.createThread()"
+                onclick="createThread()"
         >
             <div
                     class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"

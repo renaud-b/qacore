@@ -6,7 +6,6 @@ const MessageAPIErrors = {
 };
 
 
-
 const MessageAPI = {
     scriptID: "a3d7bd5d-8eb0-4c7c-93bb-f0b3eabe56bb",
     userAddress: null,
@@ -37,15 +36,46 @@ const MessageAPI = {
                     return Wormhole.executeContract(
                         MessageAPI.scriptID,
                         "RegisterUser",
-                        { encodedUserTx }
+                        { encodedUserTx },
+                        "https://utopixia.com"
                     );
                 })
                 .then((response) => {
-                    if (response.status !== "ok" && response.status !== "user_already_exists") {
-                        // On reject avec un code lisible
+                    if (response.status === "ok") {
+                        // On attend la tx, puis on resolve après commit du "private"
+                        console.log("RegisterUser: création de private en cours, attente du commit...");
+
+                        Singularity.waitForTx(response.tx)
+                            .then(() => {
+                                console.log("RegisterUser: private prêt.");
+                                resolve(response); // On resolve APRES le commit
+                            })
+                            .catch((err) => {
+                                console.error("Erreur lors de waitForTx RegisterUser:", err);
+                                reject(MessageAPIErrors.UNKNOWN_ERROR);
+                            });
+                    }
+                    else if (response.status === "user_already_exists") {
+                        // OK, user déjà présent → on resolve aussi
+                        resolve(response);
+                    }
+                    else if (response.status === "no_private_found") {
+                        // On attend la tx, puis on resolve après commit du "private"
+                        console.log("RegisterUser: création de private en cours, attente du commit...");
+
+                        Singularity.waitForTx(response.tx)
+                            .then(() => {
+                                console.log("RegisterUser: private prêt.");
+                                resolve(response); // On resolve APRES le commit
+                            })
+                            .catch((err) => {
+                                console.error("Erreur lors de waitForTx RegisterUser:", err);
+                                reject(MessageAPIErrors.UNKNOWN_ERROR);
+                            });
+                    }
+                    else {
+                        // Cas non prévu → on reject avec API_ERROR
                         reject(MessageAPIErrors.API_ERROR);
-                    } else {
-                        resolve(response); // On laisse le caller parser response.status
                     }
                 })
                 .catch((err) => {
@@ -54,6 +84,94 @@ const MessageAPI = {
                 });
         });
     },
+    joinGroup: function (groupGraphID) {
+        return new Promise((resolve, reject) => {
+            if (
+                !MessageAPI.scriptID ||
+                !MessageAPI.userAddress ||
+                !MessageAPI.eventManager
+            ) {
+                reject("Configuration incomplète");
+                return;
+            }
+
+            const payload = {
+                requestType: "join-group",
+                groupGraphID: groupGraphID,
+                timestamp: Date.now()
+            };
+
+            const encodedPayload = btoa(JSON.stringify(payload));
+
+            MessageAPI.eventManager
+                .sign(MessageAPI.userAddress, encodedPayload, 0)
+                .then((signedTx) => {
+                    const encodedUserTx = btoa(JSON.stringify(signedTx));
+                    return Wormhole.executeContract(
+                        MessageAPI.scriptID,
+                        "JoinGroup",
+                        { encodedUserTx },
+                        "https://utopixia.com"
+                    );
+                })
+                .then((response) => {
+                    if (response.status !== "ok" && response.status !== "already_joined") {
+                        reject(response.message || "Erreur inconnue");
+                    } else {
+                        resolve(response);
+                    }
+                })
+                .catch((err) => {
+                    console.error("Erreur MessageAPI.joinGroup:", err);
+                    reject(err);
+                });
+        });
+    },
+
+    leaveGroup: function (groupGraphID) {
+        return new Promise((resolve, reject) => {
+            if (
+                !MessageAPI.scriptID ||
+                !MessageAPI.userAddress ||
+                !MessageAPI.eventManager
+            ) {
+                reject("Configuration incomplète");
+                return;
+            }
+
+            const payload = {
+                requestType: "leave-group",
+                groupGraphID: groupGraphID,
+                timestamp: Date.now()
+            };
+
+            const encodedPayload = btoa(JSON.stringify(payload));
+
+            MessageAPI.eventManager
+                .sign(MessageAPI.userAddress, encodedPayload, 0)
+                .then((signedTx) => {
+                    const encodedUserTx = btoa(JSON.stringify(signedTx));
+                    return Wormhole.executeContract(
+                        MessageAPI.scriptID,
+                        "LeaveGroup",
+                        { encodedUserTx },
+                        "https://utopixia.com"
+                    );
+                })
+                .then((response) => {
+                    if (response.status !== "ok" && response.status !== "not_joined") {
+                        reject(response.message || "Erreur inconnue");
+                    } else {
+                        resolve(response);
+                    }
+                })
+                .catch((err) => {
+                    console.error("Erreur MessageAPI.leaveGroup:", err);
+                    reject(err);
+                });
+        });
+    },
+
     getGroupsForUser: function () {
         return new Promise((resolve, reject) => {
             if (
@@ -115,6 +233,7 @@ const MessageAPI = {
             const payload = {
                 requestType: "get-messages",
                 thread: threadID,
+                groupGraphID: UIManager.currentGroupGraphID,
                 timestamp: Date.now(),
             };
             const encodedPayload = btoa(JSON.stringify(payload));
@@ -137,7 +256,7 @@ const MessageAPI = {
                         } else {
                             const users = (response.messages || [])
                                 .map((msg) => {
-                                    return msg.autho;
+                                    return msg.author;
                                 })
                                 .join(";");
                             MessageAPI.loadUsers(users).then((e) => {
@@ -165,6 +284,7 @@ const MessageAPI = {
             const payload = {
                 requestType: "post-message",
                 thread: threadID,
+                groupGraphID: UIManager.currentGroupGraphID,
                 content: FromUtf8ToB64(content),
                 timestamp: Date.now(),
             };
@@ -207,13 +327,14 @@ const MessageAPI = {
         }
         return selectedUser[0];
     },
-    createThread: function () {
+    createThread: function (groupGraphID) {
         const input = document.getElementById("new-channel-name");
         const rawName = input.value.trim().replace(/^#/, "");
         if (!rawName) return;
         const payload = {
             requestType: "create-thread",
             name: rawName,
+            groupGraphID: groupGraphID,
             timestamp: Date.now(),
         };
         const encodedPayload = btoa(JSON.stringify(payload));
@@ -276,6 +397,7 @@ const MessageAPI = {
             const payload = {
                 requestType: "delete-thread",
                 thread: threadID,
+                groupGraphID: UIManager.currentGroupGraphID,
                 timestamp: Date.now(),
             };
             const encodedPayload = btoa(JSON.stringify(payload));
@@ -310,6 +432,7 @@ const MessageAPI = {
                 return;
             }
             const users = rawUserList.split(";");
+            users.push(MessageAPI.userAddress)
             const promises = users
                 .filter((userID) => {
                     return (userID && userID.length > 0) || users[userID];
@@ -347,6 +470,7 @@ const MessageAPI = {
                 requestType: "edit-thread",
                 thread: threadID,
                 newName: newName,
+                groupGraphID: UIManager.currentGroupGraphID,
                 authorized: newAuthorizedString,
                 timestamp: Date.now(),
             };

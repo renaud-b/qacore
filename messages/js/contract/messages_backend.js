@@ -4,6 +4,111 @@ const MessagesGraphID = "84d09c9b-387b-4430-8e8f-23c4304b59b3";
 
 const ProjectManagerAddress = "1MYmUX2E4s3uog5443j7bFLR3Enx63bHgU";
 
+function JoinGroup(encodedUserTx) {
+    return safeErrorWrapper(() => {
+        const userTx = parseEncodedUserTx(encodedUserTx);
+        const payload = parsePayload(userTx);
+
+        checkRequestType(payload, "join-group");
+        checkTxTimestamp(payload);
+
+        const sender = userTx.sender_blockchain_address;
+        checkRequiredParam(payload, "groupGraphID");
+
+        const groupGraphID = payload.groupGraphID.trim();
+
+        const usersGraph = new GraphElement(
+            UsersGraphID,
+            Blackhole.LoadGraph(UsersGraphID)
+        );
+
+        // Vérifier que l'utilisateur existe
+        if (!usersGraph.hasNext(sender)) {
+            throw {
+                message: "user_not_found",
+                details: sender
+            };
+        }
+
+        const userNode = usersGraph.next(sender);
+
+        // Vérifier s'il a déjà ce groupe (éviter doublon)
+        if (userNode.hasNext(groupGraphID)) {
+            return {
+                status: "already_joined",
+                groupGraphID: groupGraphID
+            };
+        }
+
+        // Sinon, créer le lien vers le groupe
+        const path = userNode.object.path + "/" + groupGraphID;
+        const nodeID = app.MD5(path);
+
+        Blackhole.UpdateElement(UsersGraphID, userNode.object.id, "children", groupGraphID);
+        Blackhole.UpdateElement(UsersGraphID, nodeID, "graphID", groupGraphID);
+        Blackhole.UpdateElement(UsersGraphID, nodeID, "type", "joined-group");
+        Blackhole.UpdateElement(UsersGraphID, nodeID, "joined_at", Date.now());
+
+        return {
+            status: "ok",
+            groupGraphID: groupGraphID,
+            userNodeID: userNode.object.id,
+            groupLinkNodeID: nodeID,
+            tx: Blackhole.Commit()
+        };
+    });
+}
+
+function LeaveGroup(encodedUserTx) {
+    return safeErrorWrapper(() => {
+        const userTx = parseEncodedUserTx(encodedUserTx);
+        const payload = parsePayload(userTx);
+
+        checkRequestType(payload, "leave-group");
+        checkTxTimestamp(payload);
+
+        const sender = userTx.sender_blockchain_address;
+
+        checkRequiredParam(payload, "groupGraphID");
+        const groupGraphID = payload.groupGraphID.trim();
+
+        const usersGraph = new GraphElement(
+            UsersGraphID,
+            Blackhole.LoadGraph(UsersGraphID)
+        );
+
+        // Vérifier que l'utilisateur existe
+        if (!usersGraph.hasNext(sender)) {
+            throw {
+                message: "user_not_found",
+                details: sender
+            };
+        }
+
+        const userNode = usersGraph.next(sender);
+
+        // Vérifier que le groupe est bien joint
+        if (!userNode.hasNext(groupGraphID)) {
+            return {
+                status: "not_joined",
+                groupGraphID: groupGraphID
+            };
+        }
+
+        const groupNode = userNode.next(groupGraphID);
+
+        // Supprimer le lien vers le groupe
+        Blackhole.DeleteElement(UsersGraphID, groupNode.object.id);
+
+        return {
+            status: "ok",
+            groupGraphID: groupGraphID,
+            userNodeID: userNode.object.id,
+            deletedNodeID: groupNode.object.id,
+            tx: Blackhole.Commit()
+        };
+    });
+}
 
 
 function GetMessagesForThread(encodedUserTx) {
@@ -34,18 +139,28 @@ function GetMessagesForThread(encodedUserTx) {
             received: payload.timestamp,
         });
     }
+
+    try {
+        checkRequiredParam(payload, "groupGraphID");
+    } catch (err) {
+        return sendError("missing field groupGraphID", err.message);
+    }
+    const groupGraphID = payload.groupGraphID.trim();
+
+
     const threadID = payload.thread;
     const graph = new GraphElement(
-        MessagesGraphID,
-        Blackhole.LoadGraph(MessagesGraphID)
+        groupGraphID,
+        Blackhole.LoadGraph(groupGraphID)
     );
     const threadNode = graph.children().find((n) => n.object.id === threadID);
     if (!threadNode) {
         return sendError("Thread introuvable", threadID);
     }
-    const authorized = threadNode.object["thread-authorized_users"] || "";
-    if (!authorized.includes(sender + ";") && sender != ProjectManagerAddress) {
-        return sendError("Accès refusé pour cet utilisateur", sender);
+    try {
+        checkUserAuthorized(sender, threadNode.object["thread-authorized_users"] || "")
+    } catch (e) {
+        return sendError("Accès refusé pour cet utilisateur", sender)
     }
     const messages = threadNode.children().map((msg) => {
         return {
@@ -69,13 +184,16 @@ function PostMessage(encodedUserTx) {
 
         checkRequiredParam(payload, "thread");
         checkRequiredParam(payload, "content");
+        checkRequiredParam(payload, "groupGraphID");
 
         const threadID = payload.thread;
         const content = payload.content;
+        const groupGraphID = payload.groupGraphID;
+
 
         const graph = new GraphElement(
-            MessagesGraphID,
-            Blackhole.LoadGraph(MessagesGraphID)
+            groupGraphID,
+            Blackhole.LoadGraph(groupGraphID)
         );
 
         const threadNode = graph.findByID(threadID);
@@ -93,10 +211,10 @@ function PostMessage(encodedUserTx) {
         const path = threadNode.object.path + "/" + nodeName;
         const nodeID = app.MD5(path);
 
-        Blackhole.UpdateElement(MessagesGraphID, threadID, "children", nodeName);
-        Blackhole.UpdateElement(MessagesGraphID, nodeID, "msg-author", sender);
-        Blackhole.UpdateElement(MessagesGraphID, nodeID, "msg-content", content);
-        Blackhole.UpdateElement(MessagesGraphID, nodeID, "msg-timestamp", Date.now());
+        Blackhole.UpdateElement(groupGraphID, threadID, "children", nodeName);
+        Blackhole.UpdateElement(groupGraphID, nodeID, "msg-author", sender);
+        Blackhole.UpdateElement(groupGraphID, nodeID, "msg-content", content);
+        Blackhole.UpdateElement(groupGraphID, nodeID, "msg-timestamp", Date.now());
 
         return JSON.stringify({
             status: "ok",
@@ -115,9 +233,9 @@ function CreateThread(encodedUserTx) {
         checkTxTimestamp(payload);
 
         const sender = userTx.sender_blockchain_address;
-        checkSenderIsPM(sender);
 
         checkRequiredParam(payload, "name");
+        checkRequiredParam(payload, "groupGraphID")
 
         const name = payload.name.trim();
         if (name.length <= 0) {
@@ -125,25 +243,28 @@ function CreateThread(encodedUserTx) {
                 message: "Nom de thread invalide",
             };
         }
+        const groupGraphID = payload.groupGraphID.trim();
+        checkSenderIsPMOrGroupOwner(sender, groupGraphID);
+
 
         const root = new GraphElement(
-            MessagesGraphID,
-            Blackhole.LoadGraph(MessagesGraphID)
+            groupGraphID,
+            Blackhole.LoadGraph(groupGraphID)
         );
 
         const path = root.object.path + "/" + name;
         const nodeID = app.MD5(path);
 
-        Blackhole.UpdateElement(MessagesGraphID, root.object.id, "children", name);
-        Blackhole.UpdateElement(MessagesGraphID, nodeID, "type", "thread");
-        Blackhole.UpdateElement(MessagesGraphID, nodeID, "thread-name", name);
+        Blackhole.UpdateElement(groupGraphID, root.object.id, "children", name);
+        Blackhole.UpdateElement(groupGraphID, nodeID, "type", "thread");
+        Blackhole.UpdateElement(groupGraphID, nodeID, "thread-name", name);
         Blackhole.UpdateElement(
-            MessagesGraphID,
+            groupGraphID,
             nodeID,
             "thread-authorized_users",
             sender + ";"
         );
-        Blackhole.UpdateElement(MessagesGraphID, nodeID, "created_at", Date.now());
+        Blackhole.UpdateElement(groupGraphID, nodeID, "created_at", Date.now());
 
         return JSON.stringify({
             status: "ok",
@@ -152,6 +273,8 @@ function CreateThread(encodedUserTx) {
         });
     });
 }
+
+
 
 
 function EditThread(encodedUserTx) {
@@ -163,20 +286,21 @@ function EditThread(encodedUserTx) {
         checkTxTimestamp(payload);
 
         const sender = userTx.sender_blockchain_address;
-        checkSenderIsPM(sender);
 
         // Vérification des params requis
         checkRequiredParam(payload, "thread");
         checkRequiredParam(payload, "newName");
         checkRequiredParam(payload, "authorized");
+        checkRequiredParam(payload, "groupGraphID");
 
         const threadID = payload.thread;
         const newName = payload.newName.trim();
         const newUsers = payload.authorized.trim();
+        const groupGraphID = payload.groupGraphID.trim();
 
         const graph = new GraphElement(
-            MessagesGraphID,
-            Blackhole.LoadGraph(MessagesGraphID)
+            groupGraphID,
+            Blackhole.LoadGraph(groupGraphID)
         );
 
         const thread = graph.findByID(threadID);
@@ -187,13 +311,25 @@ function EditThread(encodedUserTx) {
             };
         }
 
-        Blackhole.UpdateElement(MessagesGraphID, threadID, "thread-name", newName);
-        Blackhole.UpdateElement(
-            MessagesGraphID,
-            threadID,
-            "thread-authorized_users",
-            newUsers
-        );
+        checkSenderIsPMOrGroupOwner(sender, groupGraphID);
+
+        Blackhole.UpdateElement(groupGraphID, threadID, "thread-name", newName);
+        if (newUsers === ';') {
+            Blackhole.UpdateElement(
+                groupGraphID,
+                threadID,
+                "thread-authorized_users",
+                ''
+            );
+        } else {
+            Blackhole.UpdateElement(
+                groupGraphID,
+                threadID,
+                "thread-authorized_users",
+                newUsers
+            );
+        }
+
 
         return JSON.stringify({
             status: "ok",
@@ -212,7 +348,9 @@ function DeleteThread(encodedUserTx) {
         checkTxTimestamp(payload);
 
         const sender = userTx.sender_blockchain_address;
-        checkSenderIsPM(sender); // petite fonction util que je te propose ci-dessous
+
+        checkRequiredParam(payload, "groupGraphID");
+        const groupGraphID = payload.groupGraphID.trim();
 
         const threadID = payload.thread;
         if (!threadID) {
@@ -222,9 +360,10 @@ function DeleteThread(encodedUserTx) {
         }
 
         const graph = new GraphElement(
-            MessagesGraphID,
-            Blackhole.LoadGraph(MessagesGraphID)
+            groupGraphID,
+            Blackhole.LoadGraph(groupGraphID)
         );
+
 
         const thread = graph.findByID(threadID);
         if (!thread) {
@@ -234,7 +373,10 @@ function DeleteThread(encodedUserTx) {
             };
         }
 
-        Blackhole.DeleteElement(MessagesGraphID, threadID);
+        checkSenderIsPMOrGroupOwner(sender, groupGraphID);
+
+
+        Blackhole.DeleteElement(groupGraphID, threadID);
 
         return JSON.stringify({
             status: "ok",
@@ -258,8 +400,8 @@ function RegisterUser(encodedUserTx) {
         const now = Date.now();
 
         const root = new GraphElement(
-            PrivateGraphID,
-            Blackhole.LoadGraph(PrivateGraphID)
+            UsersGraphID,
+            Blackhole.LoadGraph(UsersGraphID)
         );
 
         // Check si user node existe
@@ -312,8 +454,8 @@ function GetGroupsForUser(encodedUserTx) {
 
         // Chargement du graphe Private
         const root = new GraphElement(
-            PrivateGraphID,
-            Blackhole.LoadGraph(PrivateGraphID)
+            UsersGraphID,
+            Blackhole.LoadGraph(UsersGraphID)
         );
 
         // On vérifie que le noeud utilisateur existe
@@ -410,9 +552,9 @@ function createPrivateNodeForUser(userNode, now) {
     const privatePath = userNode.object.path + "/private";
     const privateNodeID = app.MD5(privatePath);
 
-    Blackhole.UpdateElement(PrivateGraphID, userNode.id, "children", "private");
-    Blackhole.UpdateElement(PrivateGraphID, privateNodeID, "type", "private-conversations-root");
-    Blackhole.UpdateElement(PrivateGraphID, privateNodeID, "created_at", now);
+    Blackhole.UpdateElement(UsersGraphID, userNode.id, "children", "private");
+    Blackhole.UpdateElement(UsersGraphID, privateNodeID, "type", "private-conversations-root");
+    Blackhole.UpdateElement(UsersGraphID, privateNodeID, "created_at", now);
 
     return privateNodeID;
 }
@@ -421,21 +563,21 @@ function createUserNode(root, sender, now) {
     const userPath = root.object.path + "/" + sender;
     const userNodeID = app.MD5(userPath);
 
-    Blackhole.UpdateElement(PrivateGraphID, root.object.id, "children", sender);
-    Blackhole.UpdateElement(PrivateGraphID, userNodeID, "type", "user-private-root");
-    Blackhole.UpdateElement(PrivateGraphID, userNodeID, "user-address", sender);
-    Blackhole.UpdateElement(PrivateGraphID, userNodeID, "created_at", now);
+    Blackhole.UpdateElement(UsersGraphID, root.object.id, "children", sender);
+    Blackhole.UpdateElement(UsersGraphID, userNodeID, "type", "user-private-root");
+    Blackhole.UpdateElement(UsersGraphID, userNodeID, "user-address", sender);
+    Blackhole.UpdateElement(UsersGraphID, userNodeID, "created_at", now);
 
     return userNodeID;
 }
 
 function createPrivateNodeForUserID(userNodeID, sender, now) {
-    const privatePath = PrivateGraphID + "/" + sender + "/private";
+    const privatePath = UsersGraphID + "/" + sender + "/private";
     const privateNodeID = app.MD5(privatePath);
 
-    Blackhole.UpdateElement(PrivateGraphID, userNodeID, "children", "private");
-    Blackhole.UpdateElement(PrivateGraphID, privateNodeID, "type", "private-conversations-root");
-    Blackhole.UpdateElement(PrivateGraphID, privateNodeID, "created_at", now);
+    Blackhole.UpdateElement(UsersGraphID, userNodeID, "children", "private");
+    Blackhole.UpdateElement(UsersGraphID, privateNodeID, "type", "private-conversations-root");
+    Blackhole.UpdateElement(UsersGraphID, privateNodeID, "created_at", now);
 
     return privateNodeID;
 }
@@ -459,9 +601,27 @@ function sendError(message, details = null) {
     });
 }
 function checkUserAuthorized(sender, authorizedString) {
+    if (authorizedString == null || authorizedString.length == 0) {
+        return
+
+    }
     if (!authorizedString.includes(sender + ";") && sender !== ProjectManagerAddress) {
         throw {
             message: "Accès refusé",
+            details: sender,
+        };
+    }
+}
+
+function checkSenderIsPMOrGroupOwner(sender, groupGraphID) {
+    if (sender === ProjectManagerAddress) return;
+
+    const groupGraph = new GraphElement(groupGraphID, Blackhole.LoadGraph(groupGraphID));
+    const groupOwner = groupGraph.object["group-owner"];
+
+    if (sender !== groupOwner) {
+        throw {
+            message: "Seul le PM ou le owner du groupe peut effectuer cette opération",
             details: sender,
         };
     }

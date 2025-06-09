@@ -144,7 +144,11 @@ const UIManager = {
             MessageAPI.getMessages(channel.object.id).then((messages) => {
                 const container = document.getElementById("message-list");
                 container.innerHTML = "";
+
                 UIManager.showMessages(messages, users, MessageAPI.userAddress);
+
+                document.getElementById("config-channel").classList.toggle("hidden", !(UIManager.isGroupOwner));
+
             });
         });
     },
