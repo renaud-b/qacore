@@ -70,8 +70,12 @@ const UIManager = {
         channelContainer.innerHTML = "";
         channels.forEach((elem) => {
             const authorized = elem.object["thread-authorized_users"] || "";
-            if (!authorized.includes(userAddress + ";") && !isPM) {
-                console.log("user is not authorized")
+            if (
+                !authorized.includes(userAddress + ";") &&
+                !isPM &&
+                authorized.length > 0
+            ) {
+                console.log("user is not authorized");
                 return;
             }
             const chanEntry = document.createElement("li");
@@ -89,13 +93,13 @@ const UIManager = {
             chanEntry.addEventListener("click", () => {
                 UIManager.selectChannel(elem);
             });
-            console.log("adding thread to container: ", channelContainer.id)
+            console.log("adding thread to container: ", channelContainer.id);
             channelContainer.appendChild(chanEntry);
         });
     },
     showMessages: function (messages, users, currentUserAddress) {
         const container = document.getElementById("message-list");
-        container.innerHTML = ''
+        container.innerHTML = "";
         messages.forEach((msg) => {
             const targetUser = users[msg.author];
             if (!targetUser) {
@@ -144,11 +148,10 @@ const UIManager = {
             MessageAPI.getMessages(channel.object.id).then((messages) => {
                 const container = document.getElementById("message-list");
                 container.innerHTML = "";
-
                 UIManager.showMessages(messages, users, MessageAPI.userAddress);
-
-                document.getElementById("config-channel").classList.toggle("hidden", !(UIManager.isGroupOwner));
-
+                document
+                    .getElementById("config-channel")
+                    .classList.toggle("hidden", !UIManager.isGroupOwner);
             });
         });
     },
@@ -172,6 +175,33 @@ const UIManager = {
         userImg.classList.add("rounded-full");
         userImg.src = UIManager.getSafeProfilePicture(user.object);
         userIconContainer.appendChild(userImg);
+        userIconContainer.addEventListener("click", () => {
+            const profileModal = document.getElementById("modal-profile");
+            const profileName = document.getElementById("profile-name");
+            const profilePicture = document.getElementById("profile-picture");
+            const profileDescription = document.getElementById("profile-description");
+            const profileAddress = document.getElementById("profile-address");
+            const copyBtn = document.getElementById("btn-copy-address");
+            profileName.textContent = convertHtmlCodesToAccents(
+                user.object.graphName
+            );
+            profilePicture.src = user.object["profilePictureURL"];
+            profileDescription.textContent = convertHtmlCodesToAccents(
+                user.object["description"]
+            );
+            console.log(user);
+            profileAddress.textContent = user.address;
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(profileAddress.textContent).then(() => {
+                    copyBtn.textContent = "✅ Copié !";
+                    setTimeout(() => {
+                        copyBtn.textContent = "📋 Copier";
+                    }, 1500);
+                });
+            };
+            document.getElementById("btn-disconnect").classList.add("hidden");
+            profileModal.classList.remove("hidden");
+        });
         const msgGroup = document.createElement("div");
         const dateAndUserName = document.createElement("div");
         dateAndUserName.classList.add("text-sm", "text-gray-400");
@@ -181,7 +211,8 @@ const UIManager = {
         msgGroup.appendChild(dateAndUserName);
         const userMsg = document.createElement("div");
         userMsg.classList.add("text-sm");
-        userMsg.innerText = convertHtmlCodesToAccents(FromB64ToUtf8(msg.text));
+        const content = convertHtmlCodesToAccents(FromB64ToUtf8(msg.text));
+        userMsg.innerHTML = marked.parse(content);
         msgGroup.appendChild(userMsg);
         msgContainer.appendChild(userIconContainer);
         msgContainer.appendChild(msgGroup);
@@ -212,7 +243,8 @@ const UIManager = {
         } else {
             userMsg.classList.add("bg-blue-700");
         }
-        userMsg.innerText = convertHtmlCodesToAccents(FromB64ToUtf8(msg.text));
+        const content = convertHtmlCodesToAccents(FromB64ToUtf8(msg.text));
+        userMsg.innerHTML = marked.parse(content);
         msgGroup.appendChild(userMsg);
         const userIconContainer = document.createElement("div");
         userIconContainer.classList.add(
@@ -229,12 +261,27 @@ const UIManager = {
             const profileModal = document.getElementById("modal-profile");
             const profileName = document.getElementById("profile-name");
             const profilePicture = document.getElementById("profile-picture");
-            const profileDescription = document.getElementById("profile-description")
-
-            profileName.textContent = convertHtmlCodesToAccents(user.object.graphName);
+            const profileDescription = document.getElementById("profile-description");
+            document.getElementById("btn-disconnect").classList.remove("hidden");
+            profileName.textContent = convertHtmlCodesToAccents(
+                user.object.graphName
+            );
             profilePicture.src = user.object["profilePictureURL"];
-
-            profileDescription.textContent = convertHtmlCodesToAccents(user.object["description"])
+            profileDescription.textContent = convertHtmlCodesToAccents(
+                user.object["description"]
+            );
+            const profileAddress = document.getElementById("profile-address");
+            profileAddress.textContent =
+                user.object["user-address"] || MessageAPI.userAddress;
+            const copyBtn = document.getElementById("btn-copy-address");
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(profileAddress.textContent).then(() => {
+                    copyBtn.textContent = "✅ Copié !";
+                    setTimeout(() => {
+                        copyBtn.textContent = "📋 Copier";
+                    }, 1500);
+                });
+            };
             profileModal.classList.remove("hidden");
         });
         msgContainer.appendChild(msgGroup);

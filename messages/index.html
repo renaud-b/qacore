@@ -1,176 +1,292 @@
 <!DOCTYPE html>
-<html lang="fr" style="height: 100%;background-color:#1F2937">
-
+<html lang="fr" style="height: 100%; background-color: #1f2937">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Messagerie</title>
-    <meta name="guilds" content="project-manager,QACore" />
-    <meta name="mode" content="prod" />
-    <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport" />
+    <meta content="project-manager,QACore" name="guilds" />
+    <meta content="prod" name="mode" />
+    <meta
+            content="width=device-width, initial-scale=1, viewport-fit=cover"
+            name="viewport"
+    />
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="/ipfs/QmUR7vyGS4BTh8SnggNHC7HtQBvhtZighoy2bbjAXyAUpS" rel="icon" />
-    <script src="https://kit.fontawesome.com/ab44efbce6.js" crossorigin="anonymous"></script>
+    <link
+            href="/ipfs/QmUR7vyGS4BTh8SnggNHC7HtQBvhtZighoy2bbjAXyAUpS"
+            rel="icon"
+    />
+    <script
+            crossorigin="anonymous"
+            src="https://kit.fontawesome.com/ab44efbce6.js"
+    ></script>
+    <style>
+        html,
+        body {
+            height: 100dvh;
+            max-height: 100dvh;
+            overflow: hidden;
+        }
+        .pb-safe {
+            padding-bottom: constant(safe-area-inset-bottom, 16px);
+            padding-bottom: env(safe-area-inset-bottom, 16px);
+        }
+    </style>
 </head>
-
-<body class="relative min-h-screen flex flex-col font-sans bg-gray-900 text-white" height="750" width="500"
-      style="height: 100%;background-color:#1F2937">
-
-<div id="sidebar"
-     class="fixed inset-y-0 left-0 md:w-64 w-64 bg-gray-800 p-4 space-y-2 transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40 h-full"
-     style="100%:">
-    <h1 class="text-xl font-bold mb-4 ml-10">📡 Channels</h1>
-    <!-- Bouton visible seulement pour le PM -->
-    <button
-            class="mt-auto bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-600 hidden admin-btn flex flex-row w-full"
-            id="config-channels"
-    >
-        <span class="text-xl">＋</span><span class="pl-2">Ajouter un channel</span>
-    </button>
-    <ul class="space-y-1 overflow-y-auto" id="channel-list" style="height: 100%"></ul>
-
+<body
+        height="750"
+        style="background-color: #1f2937"
+        width="500"
+        class="flex flex-col font-sans bg-gray-900 text-white h-[100dvh] overflow-hidden"
+>
+<!-- Loading overlay -->
+<div
+        id="global-loading-overlay"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+>
+    <div class="flex flex-col items-center">
+        <div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-white text-lg" id="global-loading-text"></p>
+    </div>
 </div>
-<div class="md:hidden fixed inset-0 bg-black bg-opacity-50 hidden z-30" id="sidebar-backdrop"
-     onclick="toggleSidebar(false)"></div>
-
-
 <!-- Wrapper général des screens -->
-<div id="screens-wrapper" class="relative w-full h-full overflow-hidden">
-
+<div class="relative w-full h-full overflow-hidden" id="screens-wrapper">
     <!-- Screen 1 : Liste des groupes -->
-    <div id="screen-groups"
-         class="fixed inset-0 transition-transform duration-500 translate-x-0 z-10 bg-gray-900 w-full h-full">
-        <h1 class="text-xl font-bold px-6 py-4 border-b border-gray-700">👥 Mes groupes</h1>
-        <ul id="groups-list" class="p-4 space-y-2 overflow-y-auto" style="height: calc(100% - 64px);">
-            <!-- groupes dynamiques ici -->
-        </ul>
+    <div
+            class="fixed inset-0 transition-transform duration-500 translate-x-0 z-10 bg-gray-900 w-full h-full flex items-center justify-center flex-col"
+            id="screen-groups"
+    >
+        <h1 class="text-xl font-bold px-6 py-4">Chargement</h1>
+        <div style="font-size: 3em"><i class="fas fa-spin fa-spinner"></i></div>
     </div>
-
     <!-- Screen 2 : Group View -->
-    <div id="screen-group-view"
-         class="fixed inset-0 transition-transform duration-500 translate-x-full z-20 bg-gray-900 flex flex-row">
-
-        <!-- Colonne gauche : liste des groupes -->
-        <div class="max-w-[200px] w-full md:max-w-[200px] md:w-64 border-r border-gray-700 bg-gray-800 p-4 space-y-2 overflow-y-auto">
-            <h2 class="text-xl font-bold mb-4">📚 Groupes</h2>
-            <ul id="groupview-groups-list" class="space-y-2">
-                <!-- Groupes dynamiques -->
-            </ul>
-        </div>
-
-        <!-- Colonne droite : liste des threads du groupe sélectionné -->
-        <div class="flex-1 p-4 flex flex-col">
-            <div class="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
-                <h2 id="groupview-current-group-name" class="text-lg font-semibold">Groupe sélectionné</h2>
-
+    <div
+            class="fixed inset-0 transition-transform duration-500 translate-x-full z-20 bg-gray-900 flex flex-col"
+            id="screen-group-view"
+    >
+        <!-- Partie centrale : colonnes -->
+        <div class="flex-1 flex flex-row overflow-hidden">
+            <!-- Colonne gauche : liste des groupes -->
+            <div
+                    class="max-w-[100px] w-full md:max-w-[100px] md:w-64 border-r border-gray-700 bg-gray-800 p-4 space-y-2 overflow-y-auto"
+            >
+                <ul class="space-y-2" id="groupview-groups-list">
+                    <!-- Groupes dynamiques -->
+                </ul>
             </div>
-            <ul id="groupview-threads-list" class="flex-1 overflow-y-auto space-y-2">
-                <!-- Threads dynamiques -->
-            </ul>
+            <!-- Colonne droite : liste des threads du groupe sélectionné -->
+            <div class="flex-1 p-4 flex flex-col">
+                <div
+                        class="flex items-center justify-between mb-4 border-b border-gray-700 pb-2"
+                >
+                    <h2
+                            class="text-lg font-semibold"
+                            id="groupview-current-group-name"
+                    >
+                        Groupe sélectionné
+                    </h2>
+                    <button
+                            id="btn-start-private-conversation"
+                            class="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                    >
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <ul
+                        class="flex-1 overflow-y-auto space-y-2"
+                        id="groupview-threads-list"
+                >
+                    <!-- Threads dynamiques -->
+                </ul>
+            </div>
         </div>
-
+        <!-- Footer avec les boutons -->
+        <div
+                class="w-full bg-gray-800 border-t border-gray-700 px-4 pb-safe pt-2 flex justify-around items-center"
+        >
+            <!-- <button
+              id="btn-notifications"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+            >
+              🔔 Notifications</button>
+              <! --><button
+                style="font-size: 2em"
+                class="text-white px-4 py-2 rounded"
+                id="user-profile-btn"
+        >
+            <i class="fa-solid fa-user"></i>
+        </button>
+        </div>
     </div>
-
     <!-- Screen 3 : Main chat area (refacto de ton main actuel) -->
-    <div id="screen-chat"
-         class="fixed inset-0 transition-transform duration-500 translate-x-full z-20 bg-gray-900 w-full h-full flex flex-col">
+    <div
+            class="fixed inset-0 transition-transform duration-500 translate-x-full z-20 bg-gray-900 w-full flex flex-col"
+            id="screen-chat"
+    >
         <!-- Main chat area -->
-        <div class="md:ml-64 transition-all duration-300 flex flex-col h-full">
-            <!-- Header -->
-            <div class="w-full bg-gray-800 px-4 py-3 border-b border-gray-700 flex flex-row items-center">
-                <!-- Bouton retour vers la liste des groupes -->
-                <button id="btn-back-to-groups" class="mr-2 text-white px-2 py-1 rounded hover:bg-gray-700">
+        <div class="transition-all duration-300 flex flex-row h-full">
+            <div
+                    id="sidebar"
+                    class="hidden md:block w-64 bg-gray-800 p-4 flex-shrink-0 space-y-2 overflow-y-auto"
+            >
+                <h1 class="text-xl font-bold mb-4 ml-10">📡 Channels</h1>
+                <!-- Bouton visible seulement pour le PM --><button
+                    class="mt-auto bg-gray-700 text-white px-3 py-2 rounded hover:bg-gray-600 hidden admin-btn flex flex-row w-full"
+                    id="config-channels"
+            >
+              <span class="text-xl">＋</span
+              ><span class="pl-2">Ajouter un channel</span>
+            </button>
+                <ul
+                        id="channel-list"
+                        style="height: 100%"
+                        class="space-y-1 overflow-y-auto"
+                ></ul>
+            </div>
+            <div class="flex flex-col w-full">
+                <!-- Header -->
+                <div
+                        class="w-full bg-gray-800 px-4 py-3 border-b border-gray-700 flex flex-row items-center"
+                >
+                    <!-- Bouton retour vers la liste des groupes --><button
+                        id="btn-back-to-groups"
+                        class="mr-2 text-white px-2 py-1 rounded hover:bg-gray-700"
+                >
                     <i class="fas fa-home"></i>
                 </button>
-                <h2 id="channel-title" class="text-lg font-semibold flex-1">
-                    # général
-                </h2>
-                <!-- Bouton visible seulement pour le PM -->
-                <button
-                        class="ml-2 text-white pl-2 pr-2 hover:bg-gray-600 rounded hidden admin-btn"
+                    <h2 class="text-lg font-semibold flex-1" id="channel-title">
+                        # général
+                    </h2>
+                    <!-- Bouton visible seulement pour le PM --><button
                         id="config-channel"
+                        class="ml-2 text-white pl-2 pr-2 hover:bg-gray-600 rounded hidden admin-btn"
                 >
                     ⚙️
                 </button>
-            </div>
-
-            <!-- Message list -->
-            <div id="message-list" class="flex-1 overflow-y-auto px-4 py-4 space-y-2"></div>
-
-            <!-- Message input -->
-            <div class="w-full bg-gray-800 border-t border-gray-700 p-4">
-                <div class="flex gap-2">
-                    <input
-                            placeholder="Écris ton message..."
-                            type="text"
-                            class="flex-1 px-4 py-2 bg-gray-700 rounded text-white focus:outline-none"
-                            id="chat-input"
-                    />
-                    <button class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">
+                </div>
+                <!-- Message list -->
+                <div
+                        class="flex-1 overflow-y-auto px-4 py-4 space-y-2"
+                        id="message-list"
+                ></div>
+                <!-- Message input -->
+                <div class="w-full bg-gray-800 border-t border-gray-700 p-4">
+                    <div class="flex gap-2">
+                        <input
+                                id="chat-input"
+                                placeholder="Écris ton message..."
+                                class="flex-1 px-4 py-2 bg-gray-700 rounded text-white focus:outline-none"
+                                type="text"
+                        /><button
+                            class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
+                            id="send-btn"
+                    >
                         Envoyer
                     </button>
+                    </div>
                 </div>
             </div>
         </div>
-
     </div>
-
-    <div id="screen-public-groups"
-         class="fixed inset-0 transition-transform duration-500 translate-x-full z-20 bg-gray-900 flex flex-col">
-        <h1 class="text-xl font-bold px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+    <div
+            class="fixed inset-0 transition-transform duration-500 translate-x-full z-20 bg-gray-900 flex flex-col"
+            id="screen-public-groups"
+    >
+        <h1
+                class="text-xl font-bold px-6 py-4 border-b border-gray-700 flex justify-between items-center"
+        >
             🔍 Groupes publics
-            <button id="btn-back-to-group-view" class="text-sm bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-600">← Retour</button>
+            <button
+                    class="text-sm bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-600"
+                    id="btn-back-to-group-view"
+            >
+                ← Retour
+            </button>
         </h1>
-        <ul id="public-groups-list" class="p-4 space-y-2 overflow-y-auto flex-1">
+        <ul
+                id="public-groups-list"
+                class="p-4 space-y-2 overflow-y-auto flex-1"
+        >
             <!-- Groupes publics dynamiques -->
         </ul>
     </div>
-
 </div>
-
 <!-- Modal de démarrage conversation -->
-<div id="modal-start-conversation"
-     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-gray-800 text-white w-full max-w-md rounded-lg shadow-lg p-6 space-y-4 border border-gray-700">
+<div
+        id="modal-start-conversation"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+>
+    <div
+            class="bg-gray-800 text-white w-full max-w-md rounded-lg shadow-lg p-6 space-y-4 border border-gray-700"
+    >
         <h2 class="text-xl font-bold">👥 Choisir un contact</h2>
-        <ul id="contacts-list" class="space-y-2 max-h-80 overflow-y-auto">
+        <ul class="space-y-2 max-h-80 overflow-y-auto" id="contacts-list">
             <!-- Contacts dynamiques -->
         </ul>
         <div class="text-right">
             <button
-                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
                     onclick="closeStartConversationModal()"
+                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
             >
                 Fermer
             </button>
         </div>
     </div>
 </div>
-
 <!-- Modale Profil Utilisateur -->
-<div id="modal-profile" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+<div
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        id="modal-profile"
+>
     <div
-            class="bg-gray-800 text-white w-full max-w-sm rounded-lg shadow-lg p-6 space-y-4 border border-gray-700 text-center">
-        <h2 id="profile-name" class="text-xl font-bold mb-4">Mon Profil</h2>
-        <img id="profile-picture" class="w-24 h-24 rounded-full mx-auto mb-4" src="" alt="Profile" />
-        <p id="profile-description" class="text-sm mb-4 text-slate-500 italic"></p>
-        <button id="btn-disconnect" class="w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-            🚪 Se déconnecter
+            class="bg-gray-800 text-white w-full max-w-sm rounded-lg shadow-lg p-6 space-y-4 border border-gray-700 text-center"
+    >
+        <h2 class="text-xl font-bold mb-4" id="profile-name">Mon Profil</h2>
+        <img
+                alt="Profile"
+                id="profile-picture"
+                src=""
+                class="w-24 h-24 rounded-full mx-auto mb-4"
+        />
+        <div class="flex items-center justify-center gap-2 mb-2">
+          <span class="text-xs text-gray-400" id="profile-address"></span
+          ><button
+                id="btn-copy-address"
+                class="text-sm text-blue-400 hover:text-blue-200"
+        >
+            📋 Copier
         </button>
-        <button onclick="document.getElementById('modal-profile').classList.add('hidden')" class="mt-2 text-sm text-gray-400 hover:text-gray-200">
-            Annuler
-        </button>
+        </div>
+        <p
+                class="text-sm mb-4 text-slate-500 italic"
+                id="profile-description"
+        ></p>
+        <button
+                class="w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                id="btn-disconnect"
+        >
+            🚪 Se déconnecter</button
+        ><button
+            class="mt-2 text-sm text-gray-400 hover:text-gray-200"
+            onclick="document.getElementById('modal-profile').classList.add('hidden')"
+    >
+        Annuler
+    </button>
     </div>
 </div>
 <!-- modal config channel -->
-<div class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" id="modal-edit-chan">
-    <div class="bg-gray-800 text-white w-full max-w-md rounded-lg shadow-lg p-6 space-y-4 border border-gray-700">
+<div
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        id="modal-edit-chan"
+>
+    <div
+            class="bg-gray-800 text-white w-full max-w-md rounded-lg shadow-lg p-6 space-y-4 border border-gray-700"
+    >
         <h2 class="text-xl font-bold">✏️ Modifier le channel</h2>
         <input
-                class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                id="edit-chan-name"
                 placeholder="Nom du channel"
                 type="text"
+                class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                id="edit-chan-name"
         />
         <div>
             <label class="block mb-1">Utilisateurs autorisés</label>
@@ -179,13 +295,13 @@
             </ul>
             <div class="flex gap-2">
                 <input
-                        class="flex-1 px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                         id="edit-chan-user-input"
                         type="text"
                         placeholder="Adresse à ajouter"
+                        class="flex-1 px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 /><button
-                    class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
                     onclick="UIManager.addUserToChannel()"
+                    class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
             >
                 Ajouter
             </button>
@@ -193,12 +309,13 @@
         </div>
         <div class="text-right space-x-2">
             <button
-                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
                     onclick="document.getElementById('modal-edit-chan').classList.add('hidden')"
+                    class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
             >
-                Annuler</button><button
-                onclick="UIManager.saveChannelEdition()"
+                Annuler</button
+            ><button
                 class="ml-2 mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                onclick="UIManager.saveChannelEdition()"
                 id="save-channel-btn"
         >
             <div
@@ -206,11 +323,13 @@
             ></div>
             <span>Enregistrer</span>
         </button>
-            <div class="border-t border-gray-600 pt-4 mt-4 text-right flex flex-row-reverse">
+            <div
+                    class="border-t border-gray-600 pt-4 mt-4 text-right flex flex-row-reverse"
+            >
                 <button
                         id="delete-thread-btn"
-                        onclick="UIManager.confirmDeleteThread()"
                         class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 justify-center"
+                        onclick="UIManager.confirmDeleteThread()"
                 >
                     <div
                             class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
@@ -222,16 +341,20 @@
     </div>
 </div>
 <!-- end modal config channel --><!-- Modale de configuration des channels -->
-<div class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-     id="modal-edit-channels-config">
-    <div class="bg-gray-800 text-white w-full max-w-md rounded-lg shadow-lg p-6 space-y-4 border border-gray-700">
+<div
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        id="modal-edit-channels-config"
+>
+    <div
+            class="bg-gray-800 text-white w-full max-w-md rounded-lg shadow-lg p-6 space-y-4 border border-gray-700"
+    >
         <h2 class="text-xl font-bold">🔧 Créer un channel</h2>
         <div>
             <input
-                    class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Nom du channel (#general)"
                     id="new-channel-name"
                     type="text"
+                    placeholder="Nom du channel (#general)"
+                    class="w-full px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
         </div>
         <div class="text-right space-x-2">
@@ -239,10 +362,11 @@
                     class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500"
                     onclick="document.getElementById('modal-edit-channels-config').classList.add('hidden')"
             >
-                Fermer</button><button
+                Fermer</button
+            ><button
                 class="ml-2 mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                 id="create-thread-btn"
-                onclick="createThread()"
+                onclick="ChatManager.createThread()"
         >
             <div
                     class="spinner hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
@@ -252,6 +376,7 @@
         </div>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="/ipfs/QmcSG2fLG6gc55vGf1P1dcfcmZcVqLsn2bUqPc34kiB7tN"></script>
 <!-- unicode --><!-- Core scripts -->
 <script src="/parser/graph/javascript/0b6a9301-cb03-4887-bdca-1170d13f21e5"></script>
@@ -265,12 +390,23 @@
 <script src="/parser/graph/javascript/14b3fc37-e1dd-4b21-be23-a461efa2d910"></script>
 <!-- gravity/wormhole -->
 <script src="/parser/graph/javascript/0937e794-b49c-42df-8177-c99c0c722b13"></script>
+
 <script src="/parser/graph/javascript/d6745478-31bb-482d-b7cd-5875e71263ea"></script>
 <!-- core/MessagesAPI.js -->
 <script src="/parser/graph/javascript/664cfc59-e266-4c6e-bab1-8efe877717bc"></script>
 <!-- core/UIManager.js -->
+<script src="/parser/graph/javascript/cadf2184-14ef-4935-bbb5-fb95cf3249f4"></script>
+<!-- core/NavigationManager.js -->
+<script src="/parser/graph/javascript/7ed638c2-59bb-48ee-a4ff-a33560674c23"></script>
+<!-- core/GroupManager.js -->
+<script src="/parser/graph/javascript/58308485-a103-40d2-8124-c59be39c9948"></script>
+<!-- core/ChatManager.js -->
+<script src="/parser/graph/javascript/9cded26a-a459-4c1f-99b1-39ca60d7eb84"></script>
+<!-- core/PrivateConversationManager.js -->
+<script src="/parser/graph/javascript/2dce29f3-5205-453e-9931-5bc6a39f4afd"></script>
+<!-- core/PrivateConversationManager.js -->
+
 <script src="/parser/graph/javascript/23b914fa-9209-4afc-858c-f4ff9b6787d3"></script>
 <!-- app.js -->
 </body>
-
 </html>
