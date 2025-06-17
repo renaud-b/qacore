@@ -1,13 +1,18 @@
 const MessagesGraphID = "84d09c9b-387b-4430-8e8f-23c4304b59b3";
 const GroupGraphID = "048d5c2d-85b6-4d5a-a994-249f6032ec3a";
 const UsersGraphID = "b0586e65-e103-4f36-b644-574254a113d7";
+const PikaUserAddress = "1N6QSH7vsYHyeeo8L5KWVTK78HDRbkEqzc";
 let userAddress = "";
-let eventManager;
-
-
-eventManager = new EventManager((data) => {
+//let eventManager;
+dAppContext.eventManager = new EventManager((data) => {
     userAddress = data.address;
-    MessageAPI.configure(data.address, eventManager);
+    dAppContext.userAddress = userAddress
+    if (userAddress === PikaUserAddress) {
+        document.getElementById("btn-open-status").classList.remove("hidden");
+    } else {
+        document.getElementById("btn-open-status").classList.add("hidden");
+    }
+    MessageAPI.configure(data.address, dAppContext.eventManager);
     MessageAPI.registerUser()
         .catch((reason) => {
             if (reason === MessageAPIErrors.USER_NOT_FOUND) {
@@ -34,28 +39,15 @@ eventManager = new EventManager((data) => {
                             "urn:pi:graph:action:" + MessageAPI.privateMsgGraphID + ":"
                         ));
                 if (!relevant) return;
-                console.log("🔄 Refresh suite à TX détectée", tx);
+                console.log("🔄 Refresh suite à TX détectée");
                 if (isPrivateMsg && MessageAPI.privateMsgGraphID) {
                     Blackhole.getGraph(MessageAPI.privateMsgGraphID)
                         .then((graph) => {
-                            const messages = (graph.children() || [])
-                                .map((child) => {
-                                    return {
-                                        author: child.object["msg-author"],
-                                        text: child.object["msg-content"],
-                                        ts: child.object["msg-timestamp"],
-                                    };
-                                })
-                                .sort((a, b) => a.ts - b.ts);
-                            const participants = graph.object["participants"] || "";
-                            MessageAPI.loadUsers(participants).then((users) => {
-                                console.log(
-                                    "🔄 Refresh PRIVATE chat",
-                                    messages.length,
-                                    "messages"
-                                );
-                                UIManager.showMessages(messages, users, MessageAPI.userAddress);
-                            });
+                            PrivateConversationManager.loadPrivateConversation(
+                                MessageAPI.privateMsgGraphID,
+                                graph,
+                                false
+                            );
                         })
                         .catch((err) => {
                             console.warn("Erreur refresh private conversation:", err);
@@ -93,98 +85,12 @@ eventManager = new EventManager((data) => {
             }, 1000);
         });
 });
-
-
 document
     .getElementById("btn-back-to-group-view")
-    .addEventListener("click", NavigationManager.showGroupViewScreenFromPublicGroups);
-
-
-function openStartConversationModal() {
-    console.log("Ouverture de la modal de contacts...");
-    const contactsList = document.getElementById("contacts-list");
-    contactsList.innerHTML =
-        "<div class='text-center text-slate-400'>Chargement...</div>";
-    Wormhole.getUserProfile(userAddress)
-        .then((userProfileGraphRoot) => {
-            if (!userProfileGraphRoot.hasNext("dapps")) {
-                contactsList.innerHTML =
-                    "<div class='text-center text-slate-400'>Aucun contact trouvé.</div>";
-                return;
-            }
-            const dappsNode = userProfileGraphRoot.next("dapps");
-            const contactsNode = dappsNode.next("contacts");
-            if (!contactsNode) {
-                contactsList.innerHTML =
-                    "<div class='text-center text-slate-400'>Aucun contact trouvé.</div>";
-                return;
-            }
-            const contactAddresses = (contactsNode.children() || []).map((node) => {
-                return node.object.name;
-            });
-            if (contactAddresses.length === 0) {
-                contactsList.innerHTML =
-                    "<div class='text-center text-slate-400'>Aucun contact trouvé.</div>";
-                return;
-            }
-            contactsList.innerHTML = "";
-            contactAddresses.forEach((addr) => {
-                const li = document.createElement("li");
-                li.className =
-                    "bg-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-600";
-                li.textContent = addr;
-                contactsList.appendChild(li);
-                Wormhole.getUserProfile(addr).then((userProfile) => {
-                    const userName = convertHtmlCodesToAccents(
-                        userProfile.object.graphName
-                    );
-                    li.textContent = userName;
-                    li.addEventListener("click", () => {
-                        console.log("Contact sélectionné:", addr);
-                        closeStartConversationModal();
-                        startPrivateConversationWith(addr, userName);
-                    });
-                });
-            });
-        })
-        .catch((err) => {
-            console.error("Erreur lors du chargement des contacts:", err);
-            contactsList.innerHTML =
-                "<div class='text-center text-slate-400'>Erreur lors du chargement.</div>";
-        });
-    document
-        .getElementById("modal-start-conversation")
-        .classList.remove("hidden");
-}
-function closeStartConversationModal() {
-    document.getElementById("modal-start-conversation").classList.add("hidden");
-}
-function startPrivateConversationWith(contactAddress, userName) {
-    console.log("Démarrage conversation privée avec:", contactAddress);
-
-    // 👉 On affiche un spinner global
-    Utils.showGlobalLoading("Création de la conversation privée...");
-
-    MessageAPI.createPrivateConversation([userAddress, contactAddress])
-        .then((res) => {
-            console.log("Conversation privée créée:", res);
-            localStorage.removeItem("selectedThread");
-            MessageAPI.privateMsgGraphID = res.privateGraphID;
-            Blackhole.getGraph(res.privateGraphID).then((graph) => {
-                loadPrivateConversation(res.privateGraphID, graph);
-                NavigationManager.showChatScreen()
-            })
-
-        })
-        .catch((err) => {
-            console.error("Erreur création conversation privée:", err);
-            alert("Erreur lors de la création de la conversation privée.");
-        })
-        .finally(() => {
-            // On cache le spinner quoi qu'il arrive
-            Utils.hideGlobalLoading();
-        });
-}
+    .addEventListener(
+        "click",
+        NavigationManager.showGroupViewScreenFromPublicGroups
+    );
 function addChannel() {
     const nameInput = document.getElementById("new-channel-name");
     const name = nameInput.value.trim();
@@ -208,8 +114,9 @@ function toggleSidebar(forceOpen = null) {
         backdrop.classList.add("hidden");
     }
 }
-document.getElementById("send-btn").addEventListener("click", ChatManager.sendMessage);
-
+document
+    .getElementById("send-btn")
+    .addEventListener("click", ChatManager.sendMessage);
 document.getElementById("chat-input").addEventListener("keydown", function (e) {
     if (e.code === "Enter" && !e.shiftKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
@@ -232,74 +139,226 @@ document.getElementById("btn-disconnect").addEventListener("click", () => {
     const event = { type: "disconnect" };
     new Promise((resolve, reject) => {
         try {
-            eventManager.send(event, resolve);
+            dAppContext.eventManager.send(event, resolve);
         } catch (error) {
             reject(error);
         }
     })
         .then(() => {
-            console.log("Déconnexion envoyée");
             document.getElementById("modal-profile").classList.add("hidden");
         })
         .catch((err) => {
             console.error("Erreur lors de la déconnexion :", err);
         });
 });
-
 document
     .getElementById("btn-back-to-groups")
     .addEventListener("click", NavigationManager.showGroupViewScreenFromBack);
-
-
-function loadPrivateConversation(graphID, graph) {
-    console.log("start to load private conversation");
-    const convName = convertHtmlCodesToAccents(graph.object.graphName);
-    UIManager.currentGroupGraphID = graphID;
-    document.getElementById("channel-title").textContent = `🔒 ${convName}`;
-    const messages = (graph.children() || [])
-        .map((child) => {
-            return {
-                author: child.object["msg-author"],
-                text: child.object["msg-content"],
-                ts: child.object["msg-timestamp"],
-            };
-        })
-        .sort((a, b) => a.ts - b.ts);
-    console.log("messages loaded");
-    const participants = graph.object["participants"] || "";
-    console.log("participants: ", participants);
-    MessageAPI.loadUsers(participants).then((users) => {
-        console.log("user loaded");
-        UIManager.showMessages(messages, users, MessageAPI.userAddress);
-    });
-}
 document
     .getElementById("user-profile-btn")
     .addEventListener("click", function () {
-        Wormhole.getUserProfile(userAddress).then((user) => {
-            const profileModal = document.getElementById("modal-profile");
-            const profileName = document.getElementById("profile-name");
-            const profilePicture = document.getElementById("profile-picture");
-            const profileDescription = document.getElementById("profile-description");
-            document.getElementById("btn-disconnect").classList.remove("hidden");
-            profileName.textContent = convertHtmlCodesToAccents(
-                user.object.graphName
+        NavigationManager.showProfileScreen()
+    });
+
+document.getElementById("btn-open-contacts").addEventListener("click", () => {
+    NavigationManager.showContactsScreen();
+});
+document
+    .getElementById("btn-back-to-group-view-from-contacts")
+    .addEventListener("click", () => {
+        NavigationManager.showGroupViewScreenFromContacts();
+    });
+document.getElementById("btn-add-contact").addEventListener("click", () => {
+    document.getElementById("add-contact-address").value = "";
+    document.getElementById("modal-add-contact").classList.remove("hidden");
+});
+const confirmContactBtn = document.getElementById("btn-confirm-add-contact");
+confirmContactBtn.addEventListener("click", () => {
+    const address = document.getElementById("add-contact-address").value.trim();
+    if (!address) {
+        alert("Veuillez saisir une adresse.");
+        return;
+    }
+    Wormhole.getUserProfile(userAddress).then((userProfileGraphRoot) => {
+        if (!userProfileGraphRoot.hasNext("dapps")) {
+            alert("Impossible d'ajouter un contact (pas de noeud dapps)");
+            return;
+        }
+        const dappsNode = userProfileGraphRoot.next("dapps");
+        const btnPreviousValue = confirmContactBtn.innerText;
+        confirmContactBtn.innerHTML =
+            '<i class="fas fa-spin fa-spinner"></i> ' + btnPreviousValue;
+        confirmContactBtn.disable = true;
+        const actions = [];
+        if (!dappsNode.hasNext("contacts")) {
+            actions.push(
+                Blackhole.Actions.update(dappsNode.object.id, "children", "contacts")
             );
-            profilePicture.src = user.object["profilePictureURL"];
-            profileDescription.textContent = convertHtmlCodesToAccents(
-                user.object["description"]
-            );
-            const profileAddress = document.getElementById("profile-address");
-            profileAddress.textContent = userAddress;
-            const copyBtn = document.getElementById("btn-copy-address");
-            copyBtn.onclick = () => {
-                navigator.clipboard.writeText(profileAddress.textContent).then(() => {
-                    copyBtn.textContent = "✅ Copié !";
+        }
+        const expectedChildrenPath = dappsNode.object.path + "/contacts";
+        const expectedChildrenID = MD5(expectedChildrenPath);
+        actions.push(
+            Blackhole.Actions.update(expectedChildrenID, "children", address)
+        );
+        const groupAction = Blackhole.Actions.makeGroup(
+            userProfileGraphRoot.graphID,
+            ...actions
+        );
+        dAppContext.eventManager.sign(userAddress, groupAction, 0).then((signedTx) => {
+            Singularity.saveSignedTx(signedTx).then((response) => {
+                Singularity.waitForTx(response.UUID).then(() => {
+                    const btnPreviousValue = confirmContactBtn.innerText;
+                    confirmContactBtn.innerHTML = btnPreviousValue;
+                    confirmContactBtn.disable = false;
                     setTimeout(() => {
-                        copyBtn.textContent = "📋 Copier";
-                    }, 1500);
+                        document
+                            .getElementById("modal-add-contact")
+                            .classList.add("hidden");
+                        NavigationManager.showContactsScreen();
+                    }, 1000);
                 });
-            };
-            profileModal.classList.remove("hidden");
+            });
         });
     });
+});
+window.addEventListener("message", (event) => {
+    const data = event.data;
+    if (typeof data === "string") {
+        try {
+            data = JSON.parse(data);
+        } catch (_) {
+            return;
+        }
+    }
+    if (data.type === "back") {
+        if (window.currentView === "contact") {
+            NavigationManager.showGroupViewScreenFromContacts();
+        } else if (window.currentView === "public-group") {
+            NavigationManager.showGroupViewScreenFromPublicGroups();
+        } else if (window.currentView === "chat") {
+            NavigationManager.showGroupViewScreenFromBack();
+        } else if (window.currentView === "profile") {
+            NavigationManager.showGroupViewScreenFromUserProfile()
+        }
+    }
+});
+document.getElementById("btn-open-status").addEventListener("click", () => {
+    Utils.showGlobalLoading("Chargement des demandes...");
+    const list = document.getElementById("incoming-requests-list");
+    list.innerHTML = "";
+    const payload = { requestType: "get-contacts", timestamp: Date.now() };
+    const encodedPayload = btoa(JSON.stringify(payload));
+    dAppContext.eventManager
+        .sign(userAddress, encodedPayload, 0)
+        .then((signedTx) => {
+            const encodedUserTx = btoa(JSON.stringify(signedTx));
+            return Wormhole.executeContract(
+                "7ba26b5c-ff5d-4f43-a1c5-c3e77cb8b3be",
+                "GetContacts",
+                { encodedUserTx },
+                "https://utopixia.com"
+            );
+        })
+        .then((response) => {
+            if (response.status === "ok") {
+                console.log("response: ");
+                response.contacts.forEach((object) => {
+                    const item = document.createElement("li");
+                    item.className =
+                        "bg-gray-700 px-3 py-2 rounded flex justify-between items-center";
+                    const from = object["email"] || "inconnu";
+                    const ts = object["date"];
+                    item.innerHTML = `<span>${from} <span class="text-gray-400 text-sm">(${ts})</span></span>`;
+                    list.appendChild(item);
+                });
+                document
+                    .getElementById("modal-incoming-requests")
+                    .classList.remove("hidden");
+            } else {
+                console.error("Erreur GetContacts:", response);
+                reject(MessageAPIErrors.API_ERROR);
+            }
+        })
+        .catch((err) => {
+            console.error("Erreur GetContacts:", err);
+            reject(MessageAPIErrors.UNKNOWN_ERROR);
+        })
+        .finally(() => {
+            Utils.hideGlobalLoading();
+        });
+});
+
+
+
+const profileUpdateBtn = document.getElementById("update-user-profile-btn");
+const profileInputName = document.getElementById("profile-input-name");
+const profileInputDescription = document.getElementById("profile-input-description");
+
+const initialValues = {
+    name: null,
+    description: null
+};
+
+// On initialise les valeurs à la première ouverture de l'écran
+function initUserProfileFormState() {
+    initialValues.name = profileInputName.value.trim();
+    initialValues.description = profileInputDescription.value.trim();
+    updateProfileButtonState(); // force désactivation si rien n'a changé
+}
+
+// Vérifie si une différence existe entre les valeurs actuelles et initiales
+function updateProfileButtonState() {
+    const currentName = profileInputName.value.trim();
+    const currentDesc = profileInputDescription.value.trim();
+
+    const hasChanged =
+        currentName !== initialValues.name ||
+        currentDesc !== initialValues.description;
+
+    profileUpdateBtn.disabled = !hasChanged;
+    profileUpdateBtn.classList.toggle("invisible", !hasChanged);
+}
+
+// Attache les listeners (input = à chaque modification)
+profileInputName.addEventListener("input", updateProfileButtonState);
+profileInputDescription.addEventListener("input", updateProfileButtonState);
+
+profileUpdateBtn.addEventListener("click", () => {
+    const currentName = profileInputName.value.trim();
+    const currentDesc = profileInputDescription.value.trim();
+
+    Wormhole.getUserProfile(userAddress).then((userProfileGraph) => {
+        const actions = []
+        if (currentName !== initialValues.name) {
+            actions.push(
+                Blackhole.Actions.update(userProfileGraph.object.id, "graphName", convertAccentsToHtmlCodes(currentName))
+            )
+        }
+        if (currentDesc !== initialValues.description) {
+            actions.push(
+                Blackhole.Actions.update(userProfileGraph.object.id, "description", convertAccentsToHtmlCodes(currentDesc))
+            )
+        }
+
+        const groupAction = Blackhole.Actions.makeGroup(userProfileGraph.graphID, ...actions)
+        dAppContext.eventManager.sign(userAddress, groupAction, 0).then((signedTx) => {
+            const previousText = profileUpdateBtn.innerText
+            profileUpdateBtn.innerHTML = '<i class="fas fa-spin fa-spinner"></i> Enregistrement'
+            profileUpdateBtn.ariaDisabled = true
+            Singularity.saveSignedTx(signedTx).then((tx) => {
+                Singularity.waitForTx(tx.UUID).then(() => {
+                    initialValues.description = currentDesc
+                    initialValues.name = currentName
+
+                    profileUpdateBtn.innerHTML = '<i class="fas fa-check"></i> Enregistré'
+                    setTimeout(() => {
+                        profileUpdateBtn.innerText = previousText
+                        profileUpdateBtn.disabled = false
+                        profileUpdateBtn.classList.add("invisible")
+                    }, 2000)
+                })
+            })
+        })
+
+    })
+})

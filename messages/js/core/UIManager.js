@@ -23,6 +23,128 @@ const UIManager = {
         UIManager.refreshUserListUI();
         document.getElementById("modal-edit-chan").classList.remove("hidden");
     },
+    showBadgeModal: function (badge) {
+        const modal = document.getElementById("modal-badge-details");
+        document.getElementById("badge-title").textContent = badge.information.name || badge.name;
+        document.getElementById("badge-description").textContent = badge.information.description || "";
+        document.getElementById("badge-modal-image").src = badge.information.image || "https://placehold.co/64";
+
+        // Niveau du badge (si maxLevel > 1)
+        const lvl = badge.level || 1;
+        const max = badge.information.maxLevel || 1;
+        const levelElem = document.getElementById("badge-level");
+        levelElem.textContent = (max > 1) ? `Niveau ${lvl} / ${max}` : "";
+
+        modal.classList.remove("hidden");
+    },
+    showUserProfileScreen: function (userObject) {
+
+        const screen = document.getElementById("screen-profile");
+        const nameInput = document.getElementById("profile-input-name");
+        const descInput = document.getElementById("profile-input-description");
+        const addrElem = document.getElementById("screen-profile-address");
+        const pic = document.getElementById("screen-profile-picture");
+        const copyBtn = document.getElementById("copy-profile-address-btn");
+        const badgeContainer = document.getElementById("profile-badges");
+        const tokenElem = document.getElementById("token-balance");
+        const stakedElem = document.getElementById("staked-token-balance");
+
+        // Infos de base
+        nameInput.value = convertHtmlCodesToAccents(userObject.graphName || "");
+        descInput.value = convertHtmlCodesToAccents(userObject.description || "");
+        addrElem.textContent = MessageAPI.userAddress;
+        pic.src = UIManager.getSafeProfilePicture(userObject);
+
+        // Copier l'adresse
+        copyBtn.onclick = () => {
+            navigator.clipboard.writeText(addrElem.textContent).then(() => {
+                copyBtn.textContent = "✅";
+                setTimeout(() => {
+                    copyBtn.textContent = "📋";
+                }, 1500);
+            });
+        };
+
+        // Reset visuels
+        badgeContainer.innerHTML = "Chargement...";
+        tokenElem.textContent = "0";
+        stakedElem.textContent = "";
+
+        Wormhole.getUserBadges(MessageAPI.userAddress).then((badges) => {
+            badgeContainer.innerHTML = "";
+
+            if (badges.length === 0) {
+                badgeContainer.innerHTML = "<span class='text-slate-500 text-sm'>Aucun badge</span>";
+                return;
+            }
+
+            badges.forEach((badge) => {
+                const badgeElem = document.createElement("div");
+                badgeElem.className = "relative group cursor-pointer";
+                badgeElem.innerHTML = `
+              <img src="${badge.information.image}" alt="${badge.information.name}" class="w-24 h-24 rounded-full border border-gray-700 hover:ring hover:ring-blue-400" />
+              ${badge.information.maxLevel > 1
+                    ? `<span class="absolute bottom-0 right-0 bg-blue-600 text-white text-[10px] px-1 py-[1px] rounded-full">${badge.level}/${badge.information.maxLevel}</span>`
+                    : ""
+                }
+          `;
+                badgeElem.addEventListener("click", () => {
+                    UIManager.showBadgeModal(badge);
+                });
+                badgeContainer.appendChild(badgeElem);
+            });
+        })
+
+        Wormhole.getUserCoins(MessageAPI.userAddress).then((response) => {
+            tokenElem.textContent = response.coins ?? 0;
+            if (response.staked && response.staked > 0) {
+                stakedElem.innerHTML = '(<i class="fas fa-lock"></i> ' + response.staked + ')';
+            }
+
+        })
+
+        // Affichage du screen
+        document.getElementById("screen-group-view").classList.add("translate-x-full");
+        screen.classList.remove("translate-x-full");
+        initUserProfileFormState();
+        UIManager.initUserProfilePictureUpload();
+    },
+    initUserProfilePictureUpload: function () {
+        const pic = document.getElementById("screen-profile-picture");
+        const input = document.getElementById("profile-picture-file");
+
+        // Ouverture du selecteur
+        pic.addEventListener("click", () => {
+            input.click();
+        });
+
+        // Traitement du fichier
+        input.addEventListener("change", function (event) {
+            const file = event.target.files[0];
+            if (!file) {
+                console.log("Aucun fichier sélectionné.");
+                return;
+            }
+
+            Utils.showGlobalLoading("Téléversement en cours...");
+            sendFile(file)
+                .then((response) => {
+                    console.log("Upload terminé:", response);
+                    const fileCID = response.fileData.cid;
+                    const filePath = "/ipfs/" + fileCID;
+                    return addUserProfilePicture(filePath).then(() => {
+                        pic.src = filePath;
+                        Utils.hideGlobalLoading();
+                    });
+                })
+                .catch((err) => {
+                    Utils.hideGlobalLoading();
+                    alert("Erreur lors de l'upload : " + err.message || err);
+                    console.error(err);
+                });
+        });
+    },
+
     refreshUserListUI: function () {
         const list = document.getElementById("edit-chan-user-list");
         list.innerHTML = "";
@@ -123,35 +245,40 @@ const UIManager = {
         }
     },
     selectChannel: function (channel) {
-        UIManager.selectedChannel = channel;
-        localStorage.setItem("selectedThread", channel.object.id);
-        document.querySelectorAll("#channel-list li").forEach((li) => {
-            li.classList.remove("bg-gray-600", "font-bold", "text-white");
-        });
-        const selected = document.querySelector(
-            `#channel-list li[id='${channel.object.id}']`
-        );
-        if (selected) {
-            selected.classList.add("bg-gray-600", "font-bold", "text-white");
-        }
-        document.getElementById(
-            "channel-title"
-        ).textContent = `# ${channel.object["thread-name"]}`;
-        const users = (channel.children() || [])
-            .map((msg) => {
-                return msg.object["msg-author"];
-            })
-            .join(";");
-        MessageAPI.loadUsers(
-            users + ";" + channel.object["thread-authorized_users"] ?? ""
-        ).then((users) => {
-            MessageAPI.getMessages(channel.object.id).then((messages) => {
-                const container = document.getElementById("message-list");
-                container.innerHTML = "";
-                UIManager.showMessages(messages, users, MessageAPI.userAddress);
-                document
-                    .getElementById("config-channel")
-                    .classList.toggle("hidden", !UIManager.isGroupOwner);
+        return new Promise((resolve, reject) => {
+            UIManager.selectedChannel = channel;
+            localStorage.setItem("selectedThread", channel.object.id);
+            document.querySelectorAll("#channel-list li").forEach((li) => {
+                li.classList.remove("bg-gray-600", "font-bold", "text-white");
+            });
+            const selected = document.querySelector(
+                `#channel-list li[id='${channel.object.id}']`
+            );
+            if (selected) {
+                selected.classList.add("bg-gray-600", "font-bold", "text-white");
+            }
+            document.getElementById(
+                "channel-title"
+            ).textContent = `# ${channel.object["thread-name"]}`;
+            const users = (channel.children() || [])
+                .map((msg) => {
+                    return msg.object["msg-author"];
+                })
+                .join(";");
+            MessageAPI.loadUsers(
+                users + ";" + channel.object["thread-authorized_users"] ?? ""
+            ).then((users) => {
+                MessageAPI.getMessages(channel.object.id)
+                    .then((messages) => {
+                        const container = document.getElementById("message-list");
+                        container.innerHTML = "";
+                        UIManager.showMessages(messages, users, MessageAPI.userAddress);
+                        document
+                            .getElementById("config-channel")
+                            .classList.toggle("hidden", !UIManager.isGroupOwner);
+                        resolve();
+                    })
+                    .catch(reject);
             });
         });
     },
@@ -161,46 +288,59 @@ const UIManager = {
             ? userObject["profilePictureURL"]
             : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2RkZGRkZCIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjIwIiBmaWxsPSIjOTk5OTk5Ii8+PHJlY3QgeT0iNjAiIHdpZHRoPSI3MCIgaGVpZ2h0PSI0MCIgeD0iMTUiIGZpbGw9IiM5OTk5OTkiIHJ4PSIxNSIvPjwvc3ZnPg==";
     },
+    showUserProfileModal: function (profileOrNode, showDisconnect = false) {
+        let userObject;
+        if (profileOrNode.object) {
+            userObject = profileOrNode.object;
+        } else {
+            userObject = profileOrNode;
+        }
+        const profileModal = document.getElementById("modal-profile");
+        const profileName = document.getElementById("profile-name");
+        const profilePicture = document.getElementById("profile-picture");
+        const profileDescription = document.getElementById("profile-description");
+        const profileAddress = document.getElementById("profile-address");
+        const copyBtn = document.getElementById("btn-copy-address");
+        profileName.textContent = convertHtmlCodesToAccents(userObject.graphName);
+        profilePicture.src =
+            userObject.profilePictureURL || "https://placehold.co/64";
+        profileDescription.textContent = convertHtmlCodesToAccents(
+            userObject.description
+        );
+        profileAddress.textContent = userObject["user-address"] || userAddress;
+        copyBtn.onclick = () => {
+            navigator.clipboard.writeText(profileAddress.textContent).then(() => {
+                copyBtn.textContent = "✅ Copié !";
+                setTimeout(() => {
+                    copyBtn.textContent = "📋 Copier";
+                }, 1500);
+            });
+        };
+        if (showDisconnect) {
+            document.getElementById("btn-disconnect").classList.remove("hidden");
+        } else {
+            document.getElementById("btn-disconnect").classList.add("hidden");
+        }
+        profileModal.classList.remove("hidden");
+    },
     _buildUserMsg: function (msg, user) {
         const msgContainer = document.createElement("div");
-        msgContainer.classList.add("flex", "gap-3", "mb-2");
+        msgContainer.classList.add("flex", "gap-3", "mb-2", "items-center");
         const userIconContainer = document.createElement("div");
         userIconContainer.classList.add(
             "w-10",
             "h-10",
             "rounded-full",
-            "bg-gray-600"
+            "bg-gray-600",
+            "flex-shrink-0",
+            "cursor-pointer"
         );
         const userImg = document.createElement("img");
         userImg.classList.add("rounded-full");
         userImg.src = UIManager.getSafeProfilePicture(user.object);
         userIconContainer.appendChild(userImg);
         userIconContainer.addEventListener("click", () => {
-            const profileModal = document.getElementById("modal-profile");
-            const profileName = document.getElementById("profile-name");
-            const profilePicture = document.getElementById("profile-picture");
-            const profileDescription = document.getElementById("profile-description");
-            const profileAddress = document.getElementById("profile-address");
-            const copyBtn = document.getElementById("btn-copy-address");
-            profileName.textContent = convertHtmlCodesToAccents(
-                user.object.graphName
-            );
-            profilePicture.src = user.object["profilePictureURL"];
-            profileDescription.textContent = convertHtmlCodesToAccents(
-                user.object["description"]
-            );
-            console.log(user);
-            profileAddress.textContent = user.address;
-            copyBtn.onclick = () => {
-                navigator.clipboard.writeText(profileAddress.textContent).then(() => {
-                    copyBtn.textContent = "✅ Copié !";
-                    setTimeout(() => {
-                        copyBtn.textContent = "📋 Copier";
-                    }, 1500);
-                });
-            };
-            document.getElementById("btn-disconnect").classList.add("hidden");
-            profileModal.classList.remove("hidden");
+            UIManager.showUserProfileModal(user);
         });
         const msgGroup = document.createElement("div");
         const dateAndUserName = document.createElement("div");
@@ -371,3 +511,69 @@ const UIManager = {
         }
     },
 };
+
+function sendFile(file) {
+    return new Promise((resolve, reject) => {
+        const mimeType = file.type;
+
+        function generateSHA256(file) {
+            return new Promise((resolve, reject) => {
+                file.arrayBuffer().then((arrayBuffer) => {
+                    return crypto.subtle.digest("SHA-256", arrayBuffer);
+                }).then((hashBuffer) => {
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    const hash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+                    resolve(hash);
+                }).catch((error) => {
+                    console.error("Erreur lors de la génération du SHA-256 :", error);
+                    reject(error);
+                });
+            });
+        }
+        generateSHA256(file).then((hash) => {
+            const payload = {
+                'hash': hash,
+                'fileName': ("user/Documents/Pictures/" + file.name),
+                'keyID': null
+            };
+            const b64Payload = btoa(JSON.stringify(payload));
+            eventManager.signWithoutGas(MessageAPI.userAddress, b64Payload, 0).then((signedTx) => {
+                const tx = {
+                    'UUID': signedTx.UUID,
+                    'sender_public_key': signedTx.sender_public_key,
+                    'signature': signedTx.signature,
+                    'sender_blockchain_address': signedTx.sender_blockchain_address,
+                    'recipient_blockchain_address': signedTx.recipient_blockchain_address,
+                    'value': signedTx.value,
+                    'data': signedTx.data
+                };
+
+                const formData = new FormData();
+                formData.append("userTransaction", btoa(JSON.stringify(tx)));
+                formData.append("file", file);
+                formData.append("mimeType", mimeType);
+                fetch("/ipfs/upload", {
+                    'method': "POST",
+                    'body': formData
+                }).then((response) => response.json()).then((data) => {
+                    resolve(data);
+                }).catch((error) => {
+                    reject(error);
+                });
+            })
+        });
+    });
+}
+
+function addUserProfilePicture(profilePictureURL) {
+    return new Promise((resolve, reject) => {
+        Wormhole.getUserProfile(MessageAPI.userAddress).then((userProfileRoot) => {
+            const action = Blackhole.Actions.makeUpdate(userProfileRoot.graphID, userProfileRoot.object.id, "profilePictureURL", profilePictureURL);
+            eventManager.sign(MessageAPI.userAddress, action, 0).then((signedTx) => {
+                Singularity.saveSignedTx(signedTx).then((tx) => {
+                    Singularity.waitForTx(tx.UUID).then(resolve).catch(reject)
+                }).catch(reject)
+            }).catch(reject);
+        })
+    });
+}

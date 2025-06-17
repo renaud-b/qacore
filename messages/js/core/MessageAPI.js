@@ -38,7 +38,8 @@ const MessageAPI = {
                 .then((response) => {
                     if (response.status === "ok") {
                         console.log(
-                            "CreatePrivateConversation: conversation créée, attente du commit de la tx : ", response.tx
+                            "CreatePrivateConversation: conversation créée, attente du commit de la tx : ",
+                            response.tx
                         );
                         Singularity.waitForTx(response.tx)
                             .then(() => {
@@ -274,7 +275,8 @@ const MessageAPI = {
                     return Wormhole.executeContract(
                         MessageAPI.scriptID,
                         "GetMessagesForThread",
-                        { encodedUserTx }
+                        { encodedUserTx },
+                        "https://utopixia.com"
                     );
                 })
                 .then((response) => {

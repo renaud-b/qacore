@@ -2,7 +2,6 @@ const GroupManager = {
     loadUserGroups: function () {
         MessageAPI.getGroupsForUser()
             .then((userNode) => {
-                console.log("UserNode reçu:", userNode);
                 const children = userNode.children || [];
                 if (children.length === 0) {
                     document
@@ -15,8 +14,16 @@ const GroupManager = {
                         .getElementById("screen-chat")
                         .classList.add("translate-x-full");
                 } else {
-                    console.log("first children: ", children[0]);
-                    NavigationManager.showGroupViewScreen(children[0], userNode.id);
+                    const lastGroupID = localStorage.getItem("lastSelectedGroupGraphID");
+                    const selectedGroup = children.find((child) => {
+                        return child.graphID === lastGroupID;
+                    });
+
+                    if (selectedGroup) {
+                        NavigationManager.showGroupViewScreen(selectedGroup, userNode.id);
+                    } else {
+                        NavigationManager.showGroupViewScreen(children[0], userNode.id);
+                    }
                 }
             })
             .catch((reason) => {
@@ -27,9 +34,8 @@ const GroupManager = {
                 }
             });
     },
-
     openSearchPublicGroupScreen: function () {
-        console.log("Chargement des groupes publics...");
+        window.currentView = "public-group";
         MessageAPI.getGroupsForUser()
             .then((userNode) => {
                 const joinedGroupIDs = new Set();
@@ -40,7 +46,8 @@ const GroupManager = {
                     }
                 });
                 return Blackhole.getGraph(GroupGraphID).then((graph) => {
-                    const publicGroupsList = document.getElementById("public-groups-list");
+                    const publicGroupsList =
+                        document.getElementById("public-groups-list");
                     publicGroupsList.innerHTML = "";
                     const children = graph.children() || [];
                     if (children.length === 0) {
@@ -50,12 +57,36 @@ const GroupManager = {
                     }
                     children.forEach((groupNode) => {
                         const groupGraphID = groupNode.object.graphID || groupNode.id;
-                        const groupName = groupNode.object["group-name"] || "Groupe sans nom";
+                        const groupName =
+                            groupNode.object["group-name"] || "Groupe sans nom";
+                        const groupDesc =
+                            groupNode.object["group-description"] || "Aucune description.";
+                        const groupIconURL =
+                            groupNode.object["group-icon"] || "https://placehold.co/64";
                         const li = document.createElement("li");
                         li.className =
-                            "bg-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-600 flex justify-between items-center";
-                        const spanName = document.createElement("span");
-                        spanName.textContent = `💬 ${groupName}`;
+                            "w-full bg-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-600 flex items-center justify-between gap-4";
+                        const leftPart = document.createElement("div");
+                        leftPart.className =
+                            "flex items-center gap-3 flex-1 max-w-[calc(100%-120px)]";
+                        const groupIcon = document.createElement("img");
+                        groupIcon.src = groupIconURL;
+                        Blackhole.getGraph(groupNode.object.graphID).then((g) => {
+                            groupIcon.src = g.object["group-icon"];
+                        });
+                        groupIcon.className = "w-12 h-12 rounded-full object-cover";
+                        const textBlock = document.createElement("div");
+                        textBlock.className = "flex flex-col";
+                        const nameElem = document.createElement("div");
+                        nameElem.className = "font-bold text-white";
+                        nameElem.textContent = groupName;
+                        const descElem = document.createElement("div");
+                        descElem.className = "text-sm text-gray-400 break-words pt-4";
+                        descElem.textContent = groupDesc;
+                        textBlock.appendChild(nameElem);
+                        textBlock.appendChild(descElem);
+                        leftPart.appendChild(groupIcon);
+                        leftPart.appendChild(textBlock);
                         const actionBtn = document.createElement("button");
                         const isJoined = joinedGroupIDs.has(groupGraphID);
                         GroupManager.updateGroupActionButton(
@@ -64,7 +95,7 @@ const GroupManager = {
                             groupNode.object,
                             userNode
                         );
-                        li.appendChild(spanName);
+                        li.appendChild(leftPart);
                         li.appendChild(actionBtn);
                         publicGroupsList.appendChild(li);
                     });
@@ -80,7 +111,6 @@ const GroupManager = {
                 console.error("Erreur lors du chargement des groupes publics:", err);
             });
     },
-
     populateGroupViewGroupsList: function (userNodeID, selectedGroupName) {
         Blackhole.getGraph(UsersGraphID).then((graph) => {
             const userNode = graph.findByID(userNodeID);
@@ -94,13 +124,17 @@ const GroupManager = {
                     if (childNode.object.graphID) {
                         Blackhole.getGraph(childNode.object.graphID).then((g) => {
                             const img = document.createElement("img");
-                            img.className = `px-2 py-2 rounded-full cursor-pointer ${childName === selectedGroupName
-                                ? "bg-gray-700 font-bold"
-                                : "hover:bg-gray-600 bg-gray-900"
+                            img.className = `px-2 py-2 rounded-full cursor-pointer ${
+                                childName === selectedGroupName
+                                    ? "bg-gray-700 font-bold"
+                                    : "hover:bg-gray-600 bg-gray-900"
                             }`;
                             img.src = g.object["group-icon"] ?? "https://placehold.co/64";
                             img.addEventListener("click", () => {
-                                NavigationManager.showGroupViewScreen(childNode.object, userNodeID);
+                                NavigationManager.showGroupViewScreen(
+                                    childNode.object,
+                                    userNodeID
+                                );
                             });
                             groupsList.appendChild(img);
                             resolve();
@@ -108,13 +142,17 @@ const GroupManager = {
                     } else {
                         console.log("creating item for " + childName);
                         const img = document.createElement("img");
-                        img.className = `px-2 py-2 rounded-full cursor-pointer ${childName === selectedGroupName
-                            ? "bg-gray-700 font-bold"
-                            : "hover:bg-gray-600 bg-gray-900"
+                        img.className = `px-2 py-2 rounded-full cursor-pointer ${
+                            childName === selectedGroupName
+                                ? "bg-gray-700 font-bold"
+                                : "hover:bg-gray-600 bg-gray-900"
                         }`;
                         img.src = "/ipfs/QmbqDtwedDzHfsyNybrwSpKtBmH48pnvA1EEREES6WBF7n";
                         img.addEventListener("click", () => {
-                            NavigationManager.showGroupViewScreen(childNode.object, userNodeID);
+                            NavigationManager.showGroupViewScreen(
+                                childNode.object,
+                                userNodeID
+                            );
                         });
                         groupsList.appendChild(img);
                         resolve();
@@ -135,40 +173,101 @@ const GroupManager = {
             });
         });
     },
-
     populateGroupViewThreadsList: function (groupNode) {
         const threadsList = document.getElementById("groupview-threads-list");
         threadsList.innerHTML = "";
+        const headerButtonsContainer = document.getElementById(
+            "groupview-header-buttons"
+        );
+        headerButtonsContainer.innerHTML = "";
         const groupName = groupNode.name;
         if (groupName === "private") {
             document.getElementById("groupview-current-group-name").textContent =
-                "🗝️ Messages Privés";
+                "Messages Privés";
+            console.log("load private message for " + MessageAPI.userAddress);
+
             const headerPrivateBtn = document.getElementById(
                 "btn-start-private-conversation"
             );
             headerPrivateBtn.classList.remove("hidden");
-            headerPrivateBtn.onclick = openStartConversationModal;
+            headerPrivateBtn.onclick =
+                PrivateConversationManager.openStartConversationModal;
             const convs = groupNode.children || [];
             convs.forEach((convNode) => {
+                dAppContext.loadPrivateThread(convNode.graphID).then(() => {
+                  console.log("Private thread loaded: ", convNode.graphID);
+                })
                 Blackhole.getGraph(convNode.graphID).then((graph) => {
                     const li = document.createElement("li");
                     li.className =
-                        "bg-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-600";
-                    li.textContent = convertHtmlCodesToAccents(graph.object.graphName);
+                        "w-full bg-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-600 flex flex-col gap-1";
+                    const convTitle = document.createElement("div");
+                    convTitle.className = "font-bold";
+                    convTitle.textContent = convertHtmlCodesToAccents(
+                        graph.object.graphName
+                    );
+                    const messages = graph.children() || [];
+                    let lastMessage = null;
+                    if (messages.length > 0) {
+                        lastMessage = messages.reduce((latest, msg) => {
+                            return latest.object["msg-timestamp"] >
+                            msg.object["msg-timestamp"]
+                                ? latest
+                                : msg;
+                        });
+                    }
+                    const lastMsgText = document.createElement("div");
+                    lastMsgText.className =
+                        "text-sm text-gray-400 truncate w-full overflow-hidden";
+                    lastMsgText.style.wordBreak = "break-word";
+                    lastMsgText.style.whiteSpace = "nowrap";
+                    if (lastMessage) {
+                        const content = FromB64ToUtf8(
+                            lastMessage.object["msg-content"] || ""
+                        );
+                        const ts = formatTimestamp(lastMessage.object["msg-timestamp"]);
+                        lastMsgText.textContent = `[${ts}] ${content.substring(0, 50)}...`;
+                    } else {
+                        lastMsgText.textContent = "Aucun message.";
+                    }
+                    li.appendChild(convTitle);
+                    li.appendChild(lastMsgText);
                     li.addEventListener("click", () => {
-                        NavigationManager.showChatScreen()
-
-
                         localStorage.removeItem("selectedThread");
                         MessageAPI.privateMsgGraphID = convNode.graphID;
-                        loadPrivateConversation(convNode.graphID, graph);
+
+                        const btn = document.getElementById('btn-toggle-notification')
+                        btn.classList.remove("hidden");
+
+                        NotificationManager.isNotificationActivated().then((isActivated) => {
+                            console.log("is activated: ", isActivated)
+                            if (isActivated) {
+                                btn.classList.remove("text-white")
+                                btn.classList.add("text-blue-400")
+                            } else {
+                                btn.classList.add("text-white")
+                                btn.classList.remove("text-blue-400")
+                            }
+
+                        })
+
+                        PrivateConversationManager.loadPrivateConversation(
+                            convNode.graphID,
+                            graph
+                        ).then(() => {
+                            NavigationManager.showChatScreen();
+                        });
                     });
                     threadsList.appendChild(li);
-                });
+                })
+
             });
         } else {
             document
                 .getElementById("btn-start-private-conversation")
+                .classList.add("hidden");
+            document
+                .getElementById("btn-toggle-notification")
                 .classList.add("hidden");
             Blackhole.getGraph(groupNode.graphID).then((graph) => {
                 document.getElementById("groupview-current-group-name").textContent =
@@ -176,36 +275,61 @@ const GroupManager = {
                 const threads = graph.children() || [];
                 console.log("current group owner: ", graph.object["group-owner"]);
                 UIManager.isGroupOwner = graph.object["group-owner"] == userAddress;
-                console.log("is group owner: ", UIManager.isGroupOwner);
                 UIManager.currentGroupGraphID = groupNode.graphID;
                 if (UIManager.isGroupOwner) {
                     const createThreadBtn = document.createElement("button");
                     createThreadBtn.className =
-                        "block w-full mb-4 px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold";
-                    createThreadBtn.textContent = "➕ Nouveau thread";
+                        "ml-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm";
+                    createThreadBtn.innerHTML = '<i class="fas fa-plus"></i> Thread';
                     createThreadBtn.addEventListener("click", () => {
                         document
                             .getElementById("modal-edit-channels-config")
                             .classList.remove("hidden");
                     });
-                    threadsList.appendChild(createThreadBtn);
+                    headerButtonsContainer.appendChild(createThreadBtn);
                 }
                 threads.forEach((threadNode) => {
                     const li = document.createElement("li");
                     li.className =
-                        "bg-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-600";
-                    li.textContent = `# ${threadNode.object["thread-name"]}`;
+                        "w-full bg-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-600 flex flex-col gap-1";
+                    const threadTitle = document.createElement("div");
+                    threadTitle.className = "font-bold text-white truncate";
+                    threadTitle.textContent = `# ${threadNode.object["thread-name"]}`;
+                    const messages = threadNode.children() || [];
+                    let lastMessage = null;
+                    if (messages.length > 0) {
+                        lastMessage = messages.reduce((latest, msg) => {
+                            return latest.object["msg-timestamp"] >
+                            msg.object["msg-timestamp"]
+                                ? latest
+                                : msg;
+                        });
+                    }
+                    const lastMsgText = document.createElement("div");
+                    lastMsgText.className =
+                        "text-sm text-gray-400 truncate w-full md:max-w-[300px]";
+                    if (lastMessage) {
+                        const content = FromB64ToUtf8(
+                            lastMessage.object["msg-content"] || ""
+                        );
+                        const ts = formatTimestamp(lastMessage.object["msg-timestamp"]);
+                        lastMsgText.textContent = `[${ts}] ${content.substring(0, 50)}...`;
+                    } else {
+                        lastMsgText.textContent = "Aucun message.";
+                    }
+                    li.appendChild(threadTitle);
+                    li.appendChild(lastMsgText);
                     li.addEventListener("click", () => {
                         MessageAPI.privateMsgGraphID = undefined;
-                        NavigationManager.showChatScreen()
-                        UIManager.selectChannel(threadNode);
+                        UIManager.selectChannel(threadNode).then(() => {
+                            NavigationManager.showChatScreen();
+                        });
                     });
                     threadsList.appendChild(li);
                 });
             });
         }
     },
-
     updateGroupActionButton: function (btn, isJoined, groupNode, userNode) {
         if (btn.isConnected) {
             const newBtn = btn.cloneNode(true);

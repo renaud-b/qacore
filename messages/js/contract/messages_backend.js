@@ -2,6 +2,75 @@ const GroupGraphID = "048d5c2d-85b6-4d5a-a994-249f6032ec3a";
 const UsersGraphID = "b0586e65-e103-4f36-b644-574254a113d7";
 const MessagesGraphID = "84d09c9b-387b-4430-8e8f-23c4304b59b3";
 const ProjectManagerAddress = "1MYmUX2E4s3uog5443j7bFLR3Enx63bHgU";
+function AddReactionToMessage(encodedUserTx) {
+    return safeErrorWrapper(() => {
+        const userTx = parseEncodedUserTx(encodedUserTx);
+        const payload = parsePayload(userTx);
+        checkRequestType(payload, "add-reaction-to-message");
+        checkTxTimestamp(payload);
+        const sender = userTx.sender_blockchain_address;
+        checkRequiredParam(payload, "groupGraphID");
+        checkRequiredParam(payload, "threadID");
+        checkRequiredParam(payload, "messageID");
+        checkRequiredParam(payload, "emoji");
+        const groupGraphID = payload.groupGraphID.trim();
+        const threadID = payload.threadID.trim();
+        const messageID = payload.messageID.trim();
+        const emoji = payload.emoji.trim();
+        const groupGraph = new GraphElement(
+            groupGraphID,
+            Blackhole.LoadGraph(groupGraphID)
+        );
+        const threadNode = groupGraph.findByID(threadID);
+        if (!threadNode) {
+            throw { message: "Thread introuvable", details: threadID };
+        }
+        checkUserAuthorized(
+            sender,
+            threadNode.object["thread-authorized_users"] || ""
+        );
+        const messageNode = threadNode
+            .children()
+            .find((msg) => msg.object.id === messageID);
+        if (!messageNode) {
+            throw { message: "Message introuvable", details: messageID };
+        }
+        const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, "_");
+        const nodeName = "reaction_" + sender + "_" + timestamp;
+        const path = messageNode.object.path + "/" + nodeName;
+        const reactionNodeID = app.MD5(path);
+        Blackhole.UpdateElement(
+            groupGraphID,
+            messageNode.object.id,
+            "children",
+            nodeName
+        );
+        Blackhole.UpdateElement(groupGraphID, reactionNodeID, "type", "reaction");
+        Blackhole.UpdateElement(
+            groupGraphID,
+            reactionNodeID,
+            "reaction-author",
+            sender
+        );
+        Blackhole.UpdateElement(
+            groupGraphID,
+            reactionNodeID,
+            "reaction-emoji",
+            emoji
+        );
+        Blackhole.UpdateElement(
+            groupGraphID,
+            reactionNodeID,
+            "reaction-timestamp",
+            Date.now()
+        );
+        return JSON.stringify({
+            status: "ok",
+            reactionNodeID: reactionNodeID,
+            tx: Blackhole.Commit(),
+        });
+    });
+}
 function CreatePrivateConversation(encodedUserTx) {
     return safeErrorWrapper(() => {
         const userTx = parseEncodedUserTx(encodedUserTx);
@@ -20,8 +89,11 @@ function CreatePrivateConversation(encodedUserTx) {
         const sortedParticipants = [...participants].sort();
         const conversationTitle = sortedParticipants
             .map((address) => {
-                const userProfileGraphInfo  = Wormhole.GetUserProfile(address)
-                const userGraph = new GraphElement(userProfileGraphInfo.graphID, userProfileGraphInfo.graph);
+                const userProfileGraphInfo = Wormhole.GetUserProfile(address);
+                const userGraph = new GraphElement(
+                    userProfileGraphInfo.graphID,
+                    userProfileGraphInfo.graph
+                );
                 return userGraph.object.graphName;
             })
             .join(", ");
@@ -54,6 +126,11 @@ function CreatePrivateConversation(encodedUserTx) {
             "group-owner",
             sortedParticipants.join(";")
         );
+        const keyID = Paradox.CreateKey();
+        if (keyID === undefined) {
+            throw { message: "Cannot create a new key" };
+        }
+        Blackhole.UpdateElement(privateGraphID, rootNode, "keyID", keyID);
         const usersGraph = new GraphElement(
             UsersGraphID,
             Blackhole.LoadGraph(UsersGraphID)
@@ -85,7 +162,12 @@ function CreatePrivateConversation(encodedUserTx) {
             }
             const path = privateNodePath + "/" + privateGraphID;
             const convNodeID = app.MD5(path);
-            Blackhole.UpdateElement(UsersGraphID, privateNodeID, "children", privateGraphID);
+            Blackhole.UpdateElement(
+                UsersGraphID,
+                privateNodeID,
+                "children",
+                privateGraphID
+            );
             Blackhole.UpdateElement(
                 UsersGraphID,
                 convNodeID,
@@ -229,7 +311,10 @@ function GetMessagesForThread(encodedUserTx) {
         groupGraphID,
         Blackhole.LoadGraph(groupGraphID)
     );
-    const threadNode = graph.children().find((n) => n.object.id === threadID);
+    let threadNode = graph.findByID(threadID);
+    if (graph.object.id == threadID) {
+        threadNode = graph;
+    }
     if (!threadNode) {
         return sendError("Thread introuvable", threadID);
     }
@@ -241,10 +326,15 @@ function GetMessagesForThread(encodedUserTx) {
     } catch (e) {
         return sendError("Accès refusé pour cet utilisateur", sender);
     }
+    const keyID = threadNode.object["keyID"];
     const messages = threadNode.children().map((msg) => {
+        let text = msg.object["msg-content"];
+        if (keyID) {
+            text = Paradox.Decrypt(groupGraphID, msg.object.id, "msg-content");
+        }
         return {
             author: msg.object["msg-author"],
-            text: msg.object["msg-content"],
+            text: text,
             ts: msg.object["msg-timestamp"],
         };
     });
@@ -288,12 +378,24 @@ function PostMessage(encodedUserTx) {
             nodeName
         );
         Blackhole.UpdateElement(groupGraphID, nodeID, "msg-author", sender);
-        Blackhole.UpdateElement(groupGraphID, nodeID, "msg-content", content);
+        const keyID = threadNode.object["keyID"];
+        if (keyID !== undefined) {
+            Paradox.EncryptWithKey(
+                keyID,
+                groupGraphID,
+                nodeID,
+                "msg-content",
+                content,
+                "1LeSt2xeS221VgUHxiQT7KGZzpjpNxzQXc"
+            );
+        } else {
+            Blackhole.UpdateElement(groupGraphID, nodeID, "msg-content", content);
+        }
         Blackhole.UpdateElement(groupGraphID, nodeID, "msg-timestamp", Date.now());
         return JSON.stringify({
             status: "ok",
             nodeID: nodeID,
-            tx: Blackhole.Commit(),
+            tx: Blackhole.Commit(sender),
         });
     });
 }

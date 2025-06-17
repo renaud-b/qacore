@@ -1,10 +1,8 @@
 const ChatManager = {
-
     createThread: function () {
         console.log("current group graph id: ", UIManager.currentGroupGraphID);
         MessageAPI.createThread(UIManager.currentGroupGraphID);
     },
-
     sendMessage: function () {
         const input = document.getElementById("chat-input");
         const content = input.value.trim();
