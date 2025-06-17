@@ -251,7 +251,7 @@ const MessageAPI = {
                 });
         });
     },
-    getMessages: function (threadID) {
+    getMessages: function (threadID, groupGraphID = UIManager.currentGroupGraphID) {
         return new Promise((resolve, reject) => {
             if (
                 !MessageAPI.scriptID ||
@@ -264,7 +264,7 @@ const MessageAPI = {
             const payload = {
                 requestType: "get-messages",
                 thread: threadID,
-                groupGraphID: UIManager.currentGroupGraphID,
+                groupGraphID: groupGraphID,
                 timestamp: Date.now(),
             };
             const encodedPayload = btoa(JSON.stringify(payload));
