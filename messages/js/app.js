@@ -6,6 +6,7 @@ let userAddress = "";
 dAppContext.eventManager = new EventManager((data) => {
     userAddress = data.address;
     dAppContext.userAddress = userAddress;
+    dAppContext.preloadMessagesFromCache();
     if (userAddress === PikaUserAddress) {
         document.getElementById("btn-open-status").classList.remove("hidden");
     } else {
@@ -354,32 +355,27 @@ profileUpdateBtn.addEventListener("click", () => {
             });
     });
 });
-
 document.addEventListener("click", (e) => {
     const bar = document.getElementById("message-action-bar");
     if (bar && !bar.contains(e.target)) {
         bar.remove();
     }
 });
-
 document.getElementById("cancel-reply-btn").addEventListener("click", () => {
     const preview = document.getElementById("reply-preview");
     preview.classList.add("hidden");
     preview.setAttribute("data-msg-id", "");
 });
-
 document.getElementById("reply-preview").addEventListener("click", () => {
-    const targetTs = document.getElementById("reply-preview").getAttribute("data-msg-id");
+    const targetTs = document
+        .getElementById("reply-preview")
+        .getAttribute("data-msg-id");
     if (!targetTs) return;
-
-    const target = [...document.querySelectorAll("#message-list > div")]
-        .find(el => el.dataset.ts === targetTs);
-
+    const target = [...document.querySelectorAll("#message-list > div")].find(
+        (el) => el.dataset.ts === targetTs
+    );
     if (target) {
-        // Scroll doux
         target.scrollIntoView({ behavior: "smooth", block: "center" });
-
-        // Highlight temporaire
         target.classList.add("ring", "ring-blue-500", "transition");
         setTimeout(() => {
             target.classList.remove("ring", "ring-blue-500");
@@ -388,3 +384,9 @@ document.getElementById("reply-preview").addEventListener("click", () => {
         console.warn("Message cible non trouvé pour ts =", targetTs);
     }
 });
+
+
+document.getElementById("clear-cache-btn").addEventListener("click", () => {
+    dAppContext.clearCache()
+    location.reload()
+})

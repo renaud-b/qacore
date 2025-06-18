@@ -13,12 +13,22 @@ const dAppContext = {
                             MessageAPI.getMessages(graph.object.id, threadID)
                                 .then((messages) => {
                                     messages = messages.sort((a, b) => a.ts - b.ts);
+                                    let lastMessage = null;
+                                    if (messages.length > 0) {
+                                        lastMessage = messages.reduce((latest, msg) => {
+                                            return latest.ts > msg.ts ? latest : msg;
+                                        });
+                                    }
                                     dAppContext.messages[threadID] = {
-                                        ...entry,
+                                        type: "private",
+                                        threadID: threadID,
+                                        name: convertHtmlCodesToAccents(graph.object.graphName),
+                                        graph: graph,
                                         messages: messages || [],
-                                        lastMessageDate: Date.now(),
+                                        lastMessage: lastMessage,
                                         unreadCount: 0,
                                     };
+                                    dAppContext.saveMessagesToCache();
                                     resolve(dAppContext.messages[threadID]);
                                 })
                                 .catch(reject);
@@ -42,15 +52,19 @@ const dAppContext = {
                                         });
                                     }
                                     dAppContext.messages[threadID] = {
-                                        ...entry,
+                                        type: "group",
+                                        groupID: entry.groupID,
+                                        threadID: threadID,
                                         name: convertHtmlCodesToAccents(
                                             channel.object["thread-name"]
                                         ),
                                         graph: channel,
                                         messages: messages || [],
-                                        sum: newSum,
                                         lastMessage: lastMessage,
+                                        sum: newSum,
+                                        unreadCount: 0,
                                     };
+                                    dAppContext.saveMessagesToCache();
                                     resolve(dAppContext.messages[threadID]);
                                 })
                                 .catch(reject);
@@ -59,6 +73,36 @@ const dAppContext = {
                 }
             });
         });
+    },
+    saveMessagesToCache: () => {
+        try {
+            const raw = JSON.stringify(dAppContext.messages);
+            localStorage.setItem("utopixia_cache_dappctx", raw);
+        } catch (e) {
+            console.warn("Échec de cache messages:", e);
+        }
+    },
+    clearCache: () => {
+        try {
+            localStorage.removeItem("utopixia_cache_dappctx");
+        } catch (e) {
+            console.warn("Échec de clear cache messages:", e);
+        }
+    },
+    preloadMessagesFromCache: () => {
+        const raw = localStorage.getItem("utopixia_cache_dappctx");
+        if (!raw) return;
+        try {
+            const cached = JSON.parse(raw);
+            dAppContext.messages = cached;
+            console.log(
+                "✅ Préchargé depuis le cache local:",
+                Object.keys(cached).length,
+                "threads"
+            );
+        } catch (e) {
+            console.warn("Échec parsing cache local:", e);
+        }
     },
     loadGroupThread: (groupID, threadNode) => {
         return new Promise((resolve, reject) => {
@@ -89,6 +133,7 @@ const dAppContext = {
                             sum: MD5(JSON.stringify(channel.object)),
                             unreadCount: 0,
                         };
+                        dAppContext.saveMessagesToCache();
                         resolve(dAppContext.messages[threadID]);
                     })
                     .catch(reject);
@@ -121,6 +166,7 @@ const dAppContext = {
                             lastMessage: lastMessage,
                             unreadCount: 0,
                         };
+                        dAppContext.saveMessagesToCache();
                         resolve(dAppContext.messages[threadGraphID]);
                     })
                     .catch(reject);

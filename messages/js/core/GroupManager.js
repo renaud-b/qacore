@@ -139,7 +139,6 @@ const GroupManager = {
                             resolve();
                         });
                     } else {
-                        console.log("creating item for " + childName);
                         const img = document.createElement("img");
                         img.className = `px-2 py-2 rounded-full cursor-pointer ${
                             childName === selectedGroupName
@@ -183,7 +182,6 @@ const GroupManager = {
         if (groupName === "private") {
             document.getElementById("groupview-current-group-name").textContent =
                 "Messages Privés";
-            console.log("load private message for " + MessageAPI.userAddress);
             const headerPrivateBtn = document.getElementById(
                 "btn-start-private-conversation"
             );
@@ -192,8 +190,13 @@ const GroupManager = {
                 PrivateConversationManager.openStartConversationModal;
             const convs = groupNode.children || [];
             convs.forEach((convNode) => {
+                if (dAppContext.messages[convNode.graphID]) {
+                    const entry = dAppContext.messages[convNode.graphID];
+                    const li = createThreadListItemFromCache(entry, convNode.graphID);
+                    threadsList.appendChild(li);
+                    return;
+                }
                 dAppContext.loadPrivateThread(convNode.graphID).then((convEntry) => {
-                    console.log("Private thread loaded: ", convNode.graphID);
                     const messages = convEntry.messages.sort((a, b) => a.ts - b.ts);
                     const li = document.createElement("li");
                     li.className =
@@ -202,12 +205,10 @@ const GroupManager = {
                     convTitle.className = "font-bold";
                     convTitle.textContent = convEntry.name;
                     let lastMessage = null;
-                    console.log("messages: ", messages);
                     if (messages.length > 0) {
                         lastMessage = messages.reduce((latest, msg) => {
                             return latest.ts > msg.ts ? latest : msg;
                         });
-                        console.log("lastMessage: ", lastMessage);
                     }
                     const lastMsgText = document.createElement("div");
                     lastMsgText.className =
@@ -265,7 +266,6 @@ const GroupManager = {
                 document.getElementById("groupview-current-group-name").textContent =
                     graph.object.graphName;
                 const threads = graph.children() || [];
-                console.log("current group owner: ", graph.object["group-owner"]);
                 UIManager.isGroupOwner = graph.object["group-owner"] == userAddress;
                 UIManager.currentGroupGraphID = groupNode.graphID;
                 if (UIManager.isGroupOwner) {
@@ -295,7 +295,7 @@ const GroupManager = {
                             lastMsgText.className =
                                 "text-sm text-gray-400 truncate w-full md:max-w-[300px]";
                             if (entry.lastMessage) {
-                                const content = FromB64ToUtf8(entry.lastMessage.content || "");
+                                const content = FromB64ToUtf8(entry.lastMessage.text || "");
                                 const ts = formatTimestamp(entry.lastMessage.ts);
                                 lastMsgText.textContent = `[${ts}] ${content.substring(
                                     0,
@@ -329,11 +329,6 @@ const GroupManager = {
                 "bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm";
             btn.textContent = "Quitter";
             btn.addEventListener("click", () => {
-                console.log(
-                    "Tentative de quitter:",
-                    groupNode["group-name"],
-                    groupNode.graphID
-                );
                 btn.disabled = true;
                 btn.innerHTML = `
                 <div class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
@@ -393,3 +388,33 @@ const GroupManager = {
         }
     },
 };
+function createThreadListItemFromCache(entry, convID) {
+    const li = document.createElement("li");
+    li.className =
+        "w-full bg-gray-700 px-3 py-2 rounded cursor-pointer hover:bg-gray-600 flex flex-col gap-1";
+    const convTitle = document.createElement("div");
+    convTitle.className = "font-bold";
+    convTitle.textContent = entry.name;
+    const lastMsgText = document.createElement("div");
+    lastMsgText.className = "text-sm text-gray-400 truncate w-full";
+    const lastMsg = entry.lastMessage;
+    if (lastMsg) {
+        const content = FromB64ToUtf8(lastMsg.text || "");
+        const ts = formatTimestamp(lastMsg.ts);
+        lastMsgText.textContent = `[${ts}] ${content.substring(0, 50)}...`;
+    } else {
+        lastMsgText.textContent = "Aucun message.";
+    }
+    li.appendChild(convTitle);
+    li.appendChild(lastMsgText);
+    li.addEventListener("click", () => {
+        localStorage.removeItem("selectedThread");
+        MessageAPI.privateMsgGraphID = entry.threadID;
+        UIManager.currentGroupGraphID = convID;
+        NavigationManager.showChatScreen();
+        PrivateConversationManager.loadPrivateConversationFromContext(
+            entry.threadID
+        );
+    });
+    return li;
+}

@@ -7,16 +7,14 @@ const ChatManager = {
         const content = input.value.trim();
         const currentThread = localStorage.getItem("selectedThread");
         if (!content) return;
-
         const replyPreview = document.getElementById("reply-preview");
-        const replyToMsgID = replyPreview && !replyPreview.classList.contains("hidden")
-            ? replyPreview.getAttribute("data-msg-id")
-            : null;
-
+        const replyToMsgID =
+            replyPreview && !replyPreview.classList.contains("hidden")
+                ? replyPreview.getAttribute("data-msg-id")
+                : null;
         console.log("Message à envoyer :", content);
         console.log("Réponse à :", replyToMsgID);
-
-        MessageAPI.postMessage(currentThread, content).then(() => {
+        MessageAPI.postMessage(currentThread, content, replyToMsgID).then(() => {
             input.value = "";
             const currentUser = MessageAPI.getCurrentUser();
             const msgElement = UIManager._buildSelfMsg(

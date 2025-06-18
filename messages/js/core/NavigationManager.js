@@ -5,6 +5,10 @@ const NavigationManager = {
         window.currentView = "chat";
         document.getElementById("screen-groups").classList.add("translate-x-full");
         document.getElementById("screen-chat").classList.remove("translate-x-full");
+        if (!UIManager.currentGroupGraphID) {
+            console.error("No group id provided");
+            return;
+        }
         Blackhole.getGraph(UIManager.currentGroupGraphID).then((graph) => {
             const channelsNode = graph.children();
             const isOwner = graph.object["group-owner"];

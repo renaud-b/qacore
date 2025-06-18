@@ -73,11 +73,13 @@ const UIManager = {
                 const badgeElem = document.createElement("div");
                 badgeElem.className = "relative group cursor-pointer";
                 badgeElem.innerHTML = `
-              <img src="${badge.information.image}" alt="${badge.information.name
+              <img src="${badge.information.image}" alt="${
+                    badge.information.name
                 }" class="w-24 h-24 rounded-full border border-gray-700 hover:ring hover:ring-blue-400" />
-              ${badge.information.maxLevel > 1
-                    ? `<span class="absolute bottom-0 right-0 bg-blue-600 text-white text-[10px] px-1 py-[1px] rounded-full">${badge.level}/${badge.information.maxLevel}</span>`
-                    : ""
+              ${
+                    badge.information.maxLevel > 1
+                        ? `<span class="absolute bottom-0 right-0 bg-blue-600 text-white text-[10px] px-1 py-[1px] rounded-full">${badge.level}/${badge.information.maxLevel}</span>`
+                        : ""
                 }
           `;
                 badgeElem.addEventListener("click", () => {
@@ -204,9 +206,12 @@ const UIManager = {
             channelContainer.appendChild(chanEntry);
         });
     },
+    users: {},
     showMessages: function (messages, users, currentUserAddress) {
+        UIManager.users = users;
         const container = document.getElementById("message-list");
         container.innerHTML = "";
+        console.log("messages: ", messages);
         messages.forEach((msg) => {
             const targetUser = users[msg.author];
             if (!targetUser) {
@@ -261,6 +266,7 @@ const UIManager = {
                         document
                             .getElementById("config-channel")
                             .classList.toggle("hidden", !UIManager.isGroupOwner);
+                        UIManager.clearReplyPreview();
                         resolve();
                     })
                     .catch(reject);
@@ -317,15 +323,13 @@ const UIManager = {
             document.body.classList.add("no-select");
             holdTimeout = setTimeout(() => {
                 UIManager.showMessageActions(msg, msgContainer);
-            }, 500); // 500ms pour l'appui long
+            }, 500);
         });
         msgContainer.addEventListener("touchend", () => {
-            clearTimeout(holdTimeout)
+            clearTimeout(holdTimeout);
             document.body.classList.remove("no-select");
         });
-
         msgContainer.addEventListener("touchmove", () => {
-            // Si l'utilisateur déplace son doigt, on annule
             clearTimeout(holdTimeout);
             document.body.classList.remove("no-select");
         });
@@ -333,7 +337,6 @@ const UIManager = {
             e.preventDefault();
             UIManager.showMessageActions(msg, msgContainer);
         });
-
         const userIconContainer = document.createElement("div");
         userIconContainer.classList.add(
             "w-10",
@@ -357,6 +360,11 @@ const UIManager = {
             user.object.graphName
         )} <span class="text-xs text-gray-500">${formatTimestamp(msg.ts)}</span>`;
         msgGroup.appendChild(dateAndUserName);
+        if (msg["respond-to"]) {
+            const quotedContainer = UIManager.buildQuotedReply(msg["respond-to"]);
+            msgGroup.appendChild(quotedContainer);
+        }
+
         const userMsg = document.createElement("div");
         userMsg.classList.add("text-sm");
         const content = convertHtmlCodesToAccents(FromB64ToUtf8(msg.text));
@@ -375,15 +383,13 @@ const UIManager = {
             document.body.classList.add("no-select");
             holdTimeout = setTimeout(() => {
                 UIManager.showMessageActions(msg, msgContainer);
-            }, 500); // 500ms pour l'appui long
+            }, 500);
         });
         msgContainer.addEventListener("touchend", () => {
-            clearTimeout(holdTimeout)
+            clearTimeout(holdTimeout);
             document.body.classList.remove("no-select");
         });
-
         msgContainer.addEventListener("touchmove", () => {
-            // Si l'utilisateur déplace son doigt, on annule
             clearTimeout(holdTimeout);
             document.body.classList.remove("no-select");
         });
@@ -398,6 +404,10 @@ const UIManager = {
             msg.ts
         )}</span>`;
         msgGroup.appendChild(dateAndUserName);
+        if (msg["respond-to"]) {
+            const quotedContainer = UIManager.buildQuotedReply(msg["respond-to"]);
+            msgGroup.appendChild(quotedContainer);
+        }
         const userMsg = document.createElement("div");
         userMsg.classList.add(
             "text-sm",
@@ -458,79 +468,106 @@ const UIManager = {
         msgContainer.appendChild(userIconContainer);
         return msgContainer;
     },
+    buildQuotedReply: function (replyToMsg) {
+        const container = document.createElement("div");
+        container.className =
+            "mb-1 px-3 py-2 rounded bg-gray-800 border-l-4 border-blue-500 text-sm text-slate-300 cursor-pointer";
+        let previewText = convertHtmlCodesToAccents(FromB64ToUtf8(replyToMsg.text));
+        let author = replyToMsg.author;
+        const authorUser =  UIManager.users[replyToMsg.author]
+        if (authorUser) {
+            author = convertHtmlCodesToAccents(authorUser.object.graphName)
+        }
+        container.innerHTML = `<strong>${author}</strong> — ${previewText}`;
+        container.addEventListener("click", () => {
+            const target = [...document.querySelectorAll("#message-list > div")].find(
+                (el) => el.dataset.ts === replyToMsg.ts
+            );
+            if (target) {
+                target.scrollIntoView({ behavior: "smooth", block: "center" });
+                target.classList.add("ring", "ring-blue-500", "rounded");
+                setTimeout(
+                    () => target.classList.remove("ring", "ring-blue-500", "rounded"),
+                    2000
+                );
+            } else {
+                console.warn(
+                    "Réponse à un message introuvable (non encore chargé ?)",
+                    replyToMsg.ts
+                );
+            }
+        });
+        return container;
+    },
+    clearReplyPreview: function () {
+        const preview = document.getElementById("reply-preview");
+        preview.classList.add("hidden");
+        preview.setAttribute("data-msg-id", "");
+    },
     showMessageActions: function (msg, msgElem) {
-        // Supprime d'abord toute autre barre
         const existing = document.getElementById("message-action-bar");
         if (existing) existing.remove();
-
         const actionBar = document.createElement("div");
         actionBar.id = "message-action-bar";
-        actionBar.className = "flex gap-2 p-1 rounded bg-gray-800 border border-gray-600 z-50";
+        actionBar.className =
+            "flex gap-2 p-1 rounded bg-gray-800 border border-gray-600 z-50";
         actionBar.style.position = "absolute";
-
-        const emojis = ["👍", "😂", "❤️", "😮", "😢"];
-        emojis.forEach(emoji => {
+        const emojis = ["👍", "😂", "❤️", "😮", "✅"];
+        emojis.forEach((emoji) => {
             const btn = document.createElement("button");
             btn.className = "text-xl hover:scale-110 transition-transform";
             btn.textContent = emoji;
             btn.onclick = () => {
-                alert(`(🔧TODO) Réaction "${emoji}" envoyée sur le message : ${msg.ts}`);
+                alert(
+                    `(🔧TODO) Réaction "${emoji}" envoyée sur le message : ${msg.ts}`
+                );
                 actionBar.remove();
             };
             actionBar.appendChild(btn);
         });
-
         const replyBtn = document.createElement("button");
         replyBtn.className = "text-sm text-blue-400 hover:underline ml-2";
         replyBtn.innerHTML = '<i class="fa-solid fa-reply"></i>';
         replyBtn.onclick = () => {
             const preview = document.getElementById("reply-preview");
             const contentElem = document.getElementById("reply-preview-content");
-
             const content = FromB64ToUtf8(msg.text);
-            contentElem.textContent = content.slice(0, 100) + (content.length > 100 ? "…" : "");
-            preview.setAttribute("data-msg-id", msg.ts); // ou msg.id si présent
+            contentElem.textContent =
+                content.slice(0, 100) + (content.length > 100 ? "…" : "");
+            preview.setAttribute("data-msg-id", msg.id);
             preview.classList.remove("hidden");
-
             document.getElementById("chat-input").focus();
-
-            // Scroll + highlight optionnel
             const allMessages = document.querySelectorAll("#message-list > div");
-            allMessages.forEach(div => {
+            allMessages.forEach((div) => {
                 if (div.dataset && div.dataset.ts == msg.ts) {
                     div.scrollIntoView({ behavior: "smooth", block: "center" });
                     div.classList.add("ring", "ring-blue-500");
                     setTimeout(() => div.classList.remove("ring", "ring-blue-500"), 2000);
                 }
             });
-
             actionBar.remove();
         };
         actionBar.appendChild(replyBtn);
-
         const copyBtn = document.createElement("button");
-        copyBtn.className = "text-sm text-blue-400 hover:underline ml-2";
+        copyBtn.className = "text-sm text-blue-400 hover:underline ml-2 mr-2";
         copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i>';
         copyBtn.onclick = () => {
-            navigator.clipboard.writeText(FromB64ToUtf8(msg.text))
-            copyBtn.innerHTML = '<i class="fas fa-check"></i>'
+            navigator.clipboard.writeText(FromB64ToUtf8(msg.text));
+            copyBtn.innerHTML = '<i class="fas fa-check"></i>';
             setTimeout(() => {
                 copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i>';
                 actionBar.remove();
-            }, 2000)
-
+            }, 2000);
         };
         actionBar.appendChild(copyBtn);
-
-        // Positionnement dynamique
         const rect = msgElem.getBoundingClientRect();
-        const containerRect = document.getElementById("message-list").getBoundingClientRect();
+        const containerRect = document
+            .getElementById("message-list")
+            .getBoundingClientRect();
         const top = rect.bottom - containerRect.top + window.scrollY;
         const left = rect.left - containerRect.left + window.scrollX;
-
         actionBar.style.top = `${top - 50}px`;
         actionBar.style.left = `${left}px`;
-
         document.getElementById("message-list").appendChild(actionBar);
     },
     confirmDeleteThread: function () {

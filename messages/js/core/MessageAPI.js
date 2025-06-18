@@ -306,7 +306,7 @@ const MessageAPI = {
                 });
         });
     },
-    postMessage: function (threadID, content) {
+    postMessage: function (threadID, content, respondTo = null) {
         return new Promise((resolve, reject) => {
             if (
                 !MessageAPI.scriptID ||
@@ -323,6 +323,9 @@ const MessageAPI = {
                 content: FromUtf8ToB64(content),
                 timestamp: Date.now(),
             };
+            if (respondTo !== null) {
+                payload["respond-to"] = respondTo;
+            }
             const encodedPayload = btoa(JSON.stringify(payload));
             MessageAPI.eventManager
                 .sign(MessageAPI.userAddress, encodedPayload, 0)
@@ -336,6 +339,7 @@ const MessageAPI = {
                     );
                 })
                 .then((response) => {
+                    UIManager.clearReplyPreview();
                     if (response.status !== "ok") {
                         reject(response.message || "Erreur inconnue");
                     } else {

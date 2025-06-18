@@ -327,16 +327,31 @@ function GetMessagesForThread(encodedUserTx) {
         return sendError("Accès refusé pour cet utilisateur", sender);
     }
     const keyID = threadNode.object["keyID"];
+    const previousMsg = {};
     const messages = threadNode.children().map((msg) => {
         let text = msg.object["msg-content"];
         if (keyID) {
             text = Paradox.Decrypt(groupGraphID, msg.object.id, "msg-content");
         }
-        return {
+        const entry = {
+            id: msg.object.id,
             author: msg.object["msg-author"],
             text: text,
             ts: msg.object["msg-timestamp"],
         };
+        if (msg.object["respond-to"] !== undefined) {
+            const srcMsg = previousMsg[msg.object["respond-to"]];
+            if(srcMsg){
+                entry["respond-to"] = {
+                    id: srcMsg.id,
+                    author: srcMsg.author,
+                    text: srcMsg.text,
+                    ts: srcMsg.ts,
+                };
+            }
+        }
+        previousMsg[msg.object.id] = entry;
+        return entry;
     });
     return JSON.stringify({ status: "ok", messages: messages });
 }
@@ -378,6 +393,14 @@ function PostMessage(encodedUserTx) {
             nodeName
         );
         Blackhole.UpdateElement(groupGraphID, nodeID, "msg-author", sender);
+        if (payload["respond-to"] && payload["respond-to"].length > 0) {
+            Blackhole.UpdateElement(
+                groupGraphID,
+                nodeID,
+                "respond-to",
+                payload["respond-to"]
+            );
+        }
         const keyID = threadNode.object["keyID"];
         if (keyID !== undefined) {
             Paradox.EncryptWithKey(
