@@ -8,11 +8,11 @@ const Utils = {
     hideGlobalLoading: function () {
         document.getElementById("global-loading-overlay").classList.add("hidden");
     },
-    applyIfAdmin: function (userAddress, callback, ifNot = () => { }) {
+    applyIfAdmin: function (userAddress, callback, ifNot = () => {}) {
         if (userAddress === "1N6QSH7vsYHyeeo8L5KWVTK78HDRbkEqzc") {
             callback();
         } else {
-            ifNot()
+            ifNot();
         }
     },
 };

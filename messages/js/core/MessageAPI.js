@@ -251,7 +251,10 @@ const MessageAPI = {
                 });
         });
     },
-    getMessages: function (threadID, groupGraphID = UIManager.currentGroupGraphID) {
+    getMessages: function (
+        threadID,
+        groupGraphID = UIManager.currentGroupGraphID
+    ) {
         return new Promise((resolve, reject) => {
             if (
                 !MessageAPI.scriptID ||

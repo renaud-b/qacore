@@ -64,8 +64,12 @@ const NavigationManager = {
     showGroupViewScreenFromUserProfile: function () {
         window.currentView = "group";
         NavigationManager._refreshGroupViewScreen(() => {
-            document.getElementById("screen-profile").classList.add("translate-x-full");
-            document.getElementById("screen-group-view").classList.remove("translate-x-full");
+            document
+                .getElementById("screen-profile")
+                .classList.add("translate-x-full");
+            document
+                .getElementById("screen-group-view")
+                .classList.remove("translate-x-full");
         });
     },
     showGroupViewScreenFromBack: function () {

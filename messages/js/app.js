@@ -3,10 +3,9 @@ const GroupGraphID = "048d5c2d-85b6-4d5a-a994-249f6032ec3a";
 const UsersGraphID = "b0586e65-e103-4f36-b644-574254a113d7";
 const PikaUserAddress = "1N6QSH7vsYHyeeo8L5KWVTK78HDRbkEqzc";
 let userAddress = "";
-//let eventManager;
 dAppContext.eventManager = new EventManager((data) => {
     userAddress = data.address;
-    dAppContext.userAddress = userAddress
+    dAppContext.userAddress = userAddress;
     if (userAddress === PikaUserAddress) {
         document.getElementById("btn-open-status").classList.remove("hidden");
     } else {
@@ -29,59 +28,54 @@ dAppContext.eventManager = new EventManager((data) => {
         .finally(() => {
             GroupManager.loadUserGroups();
             new BlockchainObserver((tx) => {
-                const currentThread = localStorage.getItem("selectedThread");
-                const currentGroupID = UIManager.currentGroupGraphID;
-                const isPrivateMsg = !currentThread && MessageAPI.privateMsgGraphID;
-                const relevant =
-                    tx.data.includes("urn:pi:graph:action:" + currentGroupID + ":") ||
-                    (isPrivateMsg &&
-                        tx.data.includes(
-                            "urn:pi:graph:action:" + MessageAPI.privateMsgGraphID + ":"
-                        ));
-                if (!relevant) return;
-                console.log("🔄 Refresh suite à TX détectée");
-                if (isPrivateMsg && MessageAPI.privateMsgGraphID) {
-                    Blackhole.getGraph(MessageAPI.privateMsgGraphID)
-                        .then((graph) => {
-                            PrivateConversationManager.loadPrivateConversation(
-                                MessageAPI.privateMsgGraphID,
-                                graph,
-                                false
+                dAppContext.receiveTx(tx.data).then((reloadedElement) => {
+                    if (!reloadedElement) {
+                        return;
+                    }
+                    const currentThread = localStorage.getItem("selectedThread");
+                    const currentGroupID = UIManager.currentGroupGraphID;
+                    const isPrivateMsg =
+                        !currentThread && MessageAPI.privateMsgGraphID !== undefined;
+                    if (
+                        reloadedElement.type == "private" &&
+                        isPrivateMsg &&
+                        MessageAPI.privateMsgGraphID == reloadedElement.threadID
+                    ) {
+                        const users = (reloadedElement.graph.children() || [])
+                            .map((msg) => msg.object["msg-author"])
+                            .join(";");
+                        MessageAPI.loadUsers(users).then((loadedUsers) => {
+                            UIManager.showMessages(
+                                reloadedElement.messages,
+                                loadedUsers,
+                                dAppContext.userAddress
                             );
-                        })
-                        .catch((err) => {
-                            console.warn("Erreur refresh private conversation:", err);
                         });
-                } else if (currentThread) {
-                    console.log("start to refresh current group chat");
-                    MessageAPI.getMessages(currentThread)
-                        .then((messages) => {
-                            Blackhole.getGraph(currentGroupID).then((graph) => {
+                    } else if (
+                        reloadedElement.type === "group" &&
+                        !isPrivateMsg &&
+                        currentThread == reloadedElement.threadID &&
+                        currentGroupID == reloadedElement.groupID
+                    ) {
+                        MessageAPI.getMessages(reloadedElement.threadID)
+                            .then((messages) => {
+                                const graph = reloadedElement.graph;
                                 const users = (graph.children() || [])
                                     .map((msg) => msg.object["msg-author"])
                                     .join(";");
                                 MessageAPI.loadUsers(users).then((loadedUsers) => {
-                                    console.log(
-                                        "🔄 Refresh GROUP chat",
-                                        messages.length,
-                                        "messages"
-                                    );
                                     UIManager.showMessages(
                                         messages,
                                         loadedUsers,
-                                        MessageAPI.userAddress
+                                        dAppContext.userAddress
                                     );
                                 });
+                            })
+                            .catch((err) => {
+                                console.warn("Erreur lors du rechargement des messages :", err);
                             });
-                        })
-                        .catch((err) => {
-                            console.warn("Erreur lors du rechargement des messages :", err);
-                        });
-                } else {
-                    console.log(
-                        "🔄 TX reçue mais aucun thread sélectionné, pas de refresh nécessaire."
-                    );
-                }
+                    }
+                });
             }, 1000);
         });
 });
@@ -157,9 +151,8 @@ document
 document
     .getElementById("user-profile-btn")
     .addEventListener("click", function () {
-        NavigationManager.showProfileScreen()
+        NavigationManager.showProfileScreen();
     });
-
 document.getElementById("btn-open-contacts").addEventListener("click", () => {
     NavigationManager.showContactsScreen();
 });
@@ -204,21 +197,23 @@ confirmContactBtn.addEventListener("click", () => {
             userProfileGraphRoot.graphID,
             ...actions
         );
-        dAppContext.eventManager.sign(userAddress, groupAction, 0).then((signedTx) => {
-            Singularity.saveSignedTx(signedTx).then((response) => {
-                Singularity.waitForTx(response.UUID).then(() => {
-                    const btnPreviousValue = confirmContactBtn.innerText;
-                    confirmContactBtn.innerHTML = btnPreviousValue;
-                    confirmContactBtn.disable = false;
-                    setTimeout(() => {
-                        document
-                            .getElementById("modal-add-contact")
-                            .classList.add("hidden");
-                        NavigationManager.showContactsScreen();
-                    }, 1000);
+        dAppContext.eventManager
+            .sign(userAddress, groupAction, 0)
+            .then((signedTx) => {
+                Singularity.saveSignedTx(signedTx).then((response) => {
+                    Singularity.waitForTx(response.UUID).then(() => {
+                        const btnPreviousValue = confirmContactBtn.innerText;
+                        confirmContactBtn.innerHTML = btnPreviousValue;
+                        confirmContactBtn.disable = false;
+                        setTimeout(() => {
+                            document
+                                .getElementById("modal-add-contact")
+                                .classList.add("hidden");
+                            NavigationManager.showContactsScreen();
+                        }, 1000);
+                    });
                 });
             });
-        });
     });
 });
 window.addEventListener("message", (event) => {
@@ -238,7 +233,7 @@ window.addEventListener("message", (event) => {
         } else if (window.currentView === "chat") {
             NavigationManager.showGroupViewScreenFromBack();
         } else if (window.currentView === "profile") {
-            NavigationManager.showGroupViewScreenFromUserProfile()
+            NavigationManager.showGroupViewScreenFromUserProfile();
         }
     }
 });
@@ -287,78 +282,109 @@ document.getElementById("btn-open-status").addEventListener("click", () => {
             Utils.hideGlobalLoading();
         });
 });
-
-
-
 const profileUpdateBtn = document.getElementById("update-user-profile-btn");
 const profileInputName = document.getElementById("profile-input-name");
-const profileInputDescription = document.getElementById("profile-input-description");
-
-const initialValues = {
-    name: null,
-    description: null
-};
-
-// On initialise les valeurs à la première ouverture de l'écran
+const profileInputDescription = document.getElementById(
+    "profile-input-description"
+);
+const initialValues = { name: null, description: null };
 function initUserProfileFormState() {
     initialValues.name = profileInputName.value.trim();
     initialValues.description = profileInputDescription.value.trim();
-    updateProfileButtonState(); // force désactivation si rien n'a changé
+    updateProfileButtonState();
 }
-
-// Vérifie si une différence existe entre les valeurs actuelles et initiales
 function updateProfileButtonState() {
     const currentName = profileInputName.value.trim();
     const currentDesc = profileInputDescription.value.trim();
-
     const hasChanged =
         currentName !== initialValues.name ||
         currentDesc !== initialValues.description;
-
     profileUpdateBtn.disabled = !hasChanged;
     profileUpdateBtn.classList.toggle("invisible", !hasChanged);
 }
-
-// Attache les listeners (input = à chaque modification)
 profileInputName.addEventListener("input", updateProfileButtonState);
 profileInputDescription.addEventListener("input", updateProfileButtonState);
-
 profileUpdateBtn.addEventListener("click", () => {
     const currentName = profileInputName.value.trim();
     const currentDesc = profileInputDescription.value.trim();
-
     Wormhole.getUserProfile(userAddress).then((userProfileGraph) => {
-        const actions = []
+        const actions = [];
         if (currentName !== initialValues.name) {
             actions.push(
-                Blackhole.Actions.update(userProfileGraph.object.id, "graphName", convertAccentsToHtmlCodes(currentName))
-            )
+                Blackhole.Actions.update(
+                    userProfileGraph.object.id,
+                    "graphName",
+                    convertAccentsToHtmlCodes(currentName)
+                )
+            );
         }
         if (currentDesc !== initialValues.description) {
             actions.push(
-                Blackhole.Actions.update(userProfileGraph.object.id, "description", convertAccentsToHtmlCodes(currentDesc))
-            )
+                Blackhole.Actions.update(
+                    userProfileGraph.object.id,
+                    "description",
+                    convertAccentsToHtmlCodes(currentDesc)
+                )
+            );
         }
+        const groupAction = Blackhole.Actions.makeGroup(
+            userProfileGraph.graphID,
+            ...actions
+        );
+        dAppContext.eventManager
+            .sign(userAddress, groupAction, 0)
+            .then((signedTx) => {
+                const previousText = profileUpdateBtn.innerText;
+                profileUpdateBtn.innerHTML =
+                    '<i class="fas fa-spin fa-spinner"></i> Enregistrement';
+                profileUpdateBtn.ariaDisabled = true;
+                Singularity.saveSignedTx(signedTx).then((tx) => {
+                    Singularity.waitForTx(tx.UUID).then(() => {
+                        initialValues.description = currentDesc;
+                        initialValues.name = currentName;
+                        profileUpdateBtn.innerHTML =
+                            '<i class="fas fa-check"></i> Enregistré';
+                        setTimeout(() => {
+                            profileUpdateBtn.innerText = previousText;
+                            profileUpdateBtn.disabled = false;
+                            profileUpdateBtn.classList.add("invisible");
+                        }, 2000);
+                    });
+                });
+            });
+    });
+});
 
-        const groupAction = Blackhole.Actions.makeGroup(userProfileGraph.graphID, ...actions)
-        dAppContext.eventManager.sign(userAddress, groupAction, 0).then((signedTx) => {
-            const previousText = profileUpdateBtn.innerText
-            profileUpdateBtn.innerHTML = '<i class="fas fa-spin fa-spinner"></i> Enregistrement'
-            profileUpdateBtn.ariaDisabled = true
-            Singularity.saveSignedTx(signedTx).then((tx) => {
-                Singularity.waitForTx(tx.UUID).then(() => {
-                    initialValues.description = currentDesc
-                    initialValues.name = currentName
+document.addEventListener("click", (e) => {
+    const bar = document.getElementById("message-action-bar");
+    if (bar && !bar.contains(e.target)) {
+        bar.remove();
+    }
+});
 
-                    profileUpdateBtn.innerHTML = '<i class="fas fa-check"></i> Enregistré'
-                    setTimeout(() => {
-                        profileUpdateBtn.innerText = previousText
-                        profileUpdateBtn.disabled = false
-                        profileUpdateBtn.classList.add("invisible")
-                    }, 2000)
-                })
-            })
-        })
+document.getElementById("cancel-reply-btn").addEventListener("click", () => {
+    const preview = document.getElementById("reply-preview");
+    preview.classList.add("hidden");
+    preview.setAttribute("data-msg-id", "");
+});
 
-    })
-})
+document.getElementById("reply-preview").addEventListener("click", () => {
+    const targetTs = document.getElementById("reply-preview").getAttribute("data-msg-id");
+    if (!targetTs) return;
+
+    const target = [...document.querySelectorAll("#message-list > div")]
+        .find(el => el.dataset.ts === targetTs);
+
+    if (target) {
+        // Scroll doux
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        // Highlight temporaire
+        target.classList.add("ring", "ring-blue-500", "transition");
+        setTimeout(() => {
+            target.classList.remove("ring", "ring-blue-500");
+        }, 2000);
+    } else {
+        console.warn("Message cible non trouvé pour ts =", targetTs);
+    }
+});

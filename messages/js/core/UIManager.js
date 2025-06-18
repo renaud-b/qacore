@@ -25,20 +25,19 @@ const UIManager = {
     },
     showBadgeModal: function (badge) {
         const modal = document.getElementById("modal-badge-details");
-        document.getElementById("badge-title").textContent = badge.information.name || badge.name;
-        document.getElementById("badge-description").textContent = badge.information.description || "";
-        document.getElementById("badge-modal-image").src = badge.information.image || "https://placehold.co/64";
-
-        // Niveau du badge (si maxLevel > 1)
+        document.getElementById("badge-title").textContent =
+            badge.information.name || badge.name;
+        document.getElementById("badge-description").textContent =
+            badge.information.description || "";
+        document.getElementById("badge-modal-image").src =
+            badge.information.image || "https://placehold.co/64";
         const lvl = badge.level || 1;
         const max = badge.information.maxLevel || 1;
         const levelElem = document.getElementById("badge-level");
-        levelElem.textContent = (max > 1) ? `Niveau ${lvl} / ${max}` : "";
-
+        levelElem.textContent = max > 1 ? `Niveau ${lvl} / ${max}` : "";
         modal.classList.remove("hidden");
     },
     showUserProfileScreen: function (userObject) {
-
         const screen = document.getElementById("screen-profile");
         const nameInput = document.getElementById("profile-input-name");
         const descInput = document.getElementById("profile-input-description");
@@ -48,14 +47,10 @@ const UIManager = {
         const badgeContainer = document.getElementById("profile-badges");
         const tokenElem = document.getElementById("token-balance");
         const stakedElem = document.getElementById("staked-token-balance");
-
-        // Infos de base
         nameInput.value = convertHtmlCodesToAccents(userObject.graphName || "");
         descInput.value = convertHtmlCodesToAccents(userObject.description || "");
         addrElem.textContent = MessageAPI.userAddress;
         pic.src = UIManager.getSafeProfilePicture(userObject);
-
-        // Copier l'adresse
         copyBtn.onclick = () => {
             navigator.clipboard.writeText(addrElem.textContent).then(() => {
                 copyBtn.textContent = "✅";
@@ -64,25 +59,22 @@ const UIManager = {
                 }, 1500);
             });
         };
-
-        // Reset visuels
         badgeContainer.innerHTML = "Chargement...";
         tokenElem.textContent = "0";
         stakedElem.textContent = "";
-
         Wormhole.getUserBadges(MessageAPI.userAddress).then((badges) => {
             badgeContainer.innerHTML = "";
-
             if (badges.length === 0) {
-                badgeContainer.innerHTML = "<span class='text-slate-500 text-sm'>Aucun badge</span>";
+                badgeContainer.innerHTML =
+                    "<span class='text-slate-500 text-sm'>Aucun badge</span>";
                 return;
             }
-
             badges.forEach((badge) => {
                 const badgeElem = document.createElement("div");
                 badgeElem.className = "relative group cursor-pointer";
                 badgeElem.innerHTML = `
-              <img src="${badge.information.image}" alt="${badge.information.name}" class="w-24 h-24 rounded-full border border-gray-700 hover:ring hover:ring-blue-400" />
+              <img src="${badge.information.image}" alt="${badge.information.name
+                }" class="w-24 h-24 rounded-full border border-gray-700 hover:ring hover:ring-blue-400" />
               ${badge.information.maxLevel > 1
                     ? `<span class="absolute bottom-0 right-0 bg-blue-600 text-white text-[10px] px-1 py-[1px] rounded-full">${badge.level}/${badge.information.maxLevel}</span>`
                     : ""
@@ -93,18 +85,17 @@ const UIManager = {
                 });
                 badgeContainer.appendChild(badgeElem);
             });
-        })
-
+        });
         Wormhole.getUserCoins(MessageAPI.userAddress).then((response) => {
             tokenElem.textContent = response.coins ?? 0;
             if (response.staked && response.staked > 0) {
-                stakedElem.innerHTML = '(<i class="fas fa-lock"></i> ' + response.staked + ')';
+                stakedElem.innerHTML =
+                    '(<i class="fas fa-lock"></i> ' + response.staked + ")";
             }
-
-        })
-
-        // Affichage du screen
-        document.getElementById("screen-group-view").classList.add("translate-x-full");
+        });
+        document
+            .getElementById("screen-group-view")
+            .classList.add("translate-x-full");
         screen.classList.remove("translate-x-full");
         initUserProfileFormState();
         UIManager.initUserProfilePictureUpload();
@@ -112,20 +103,15 @@ const UIManager = {
     initUserProfilePictureUpload: function () {
         const pic = document.getElementById("screen-profile-picture");
         const input = document.getElementById("profile-picture-file");
-
-        // Ouverture du selecteur
         pic.addEventListener("click", () => {
             input.click();
         });
-
-        // Traitement du fichier
         input.addEventListener("change", function (event) {
             const file = event.target.files[0];
             if (!file) {
                 console.log("Aucun fichier sélectionné.");
                 return;
             }
-
             Utils.showGlobalLoading("Téléversement en cours...");
             sendFile(file)
                 .then((response) => {
@@ -144,7 +130,6 @@ const UIManager = {
                 });
         });
     },
-
     refreshUserListUI: function () {
         const list = document.getElementById("edit-chan-user-list");
         list.innerHTML = "";
@@ -326,6 +311,29 @@ const UIManager = {
     _buildUserMsg: function (msg, user) {
         const msgContainer = document.createElement("div");
         msgContainer.classList.add("flex", "gap-3", "mb-2", "items-center");
+        msgContainer.dataset.ts = msg.ts;
+        let holdTimeout;
+        msgContainer.addEventListener("touchstart", (e) => {
+            document.body.classList.add("no-select");
+            holdTimeout = setTimeout(() => {
+                UIManager.showMessageActions(msg, msgContainer);
+            }, 500); // 500ms pour l'appui long
+        });
+        msgContainer.addEventListener("touchend", () => {
+            clearTimeout(holdTimeout)
+            document.body.classList.remove("no-select");
+        });
+
+        msgContainer.addEventListener("touchmove", () => {
+            // Si l'utilisateur déplace son doigt, on annule
+            clearTimeout(holdTimeout);
+            document.body.classList.remove("no-select");
+        });
+        msgContainer.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            UIManager.showMessageActions(msg, msgContainer);
+        });
+
         const userIconContainer = document.createElement("div");
         userIconContainer.classList.add(
             "w-10",
@@ -361,6 +369,28 @@ const UIManager = {
     _buildSelfMsg: function (msg, user, isTmp = false) {
         const msgContainer = document.createElement("div");
         msgContainer.classList.add("flex", "gap-3", "justify-end", "text-right");
+        msgContainer.dataset.ts = msg.ts;
+        let holdTimeout;
+        msgContainer.addEventListener("touchstart", (e) => {
+            document.body.classList.add("no-select");
+            holdTimeout = setTimeout(() => {
+                UIManager.showMessageActions(msg, msgContainer);
+            }, 500); // 500ms pour l'appui long
+        });
+        msgContainer.addEventListener("touchend", () => {
+            clearTimeout(holdTimeout)
+            document.body.classList.remove("no-select");
+        });
+
+        msgContainer.addEventListener("touchmove", () => {
+            // Si l'utilisateur déplace son doigt, on annule
+            clearTimeout(holdTimeout);
+            document.body.classList.remove("no-select");
+        });
+        msgContainer.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            UIManager.showMessageActions(msg, msgContainer);
+        });
         const msgGroup = document.createElement("div");
         const dateAndUserName = document.createElement("div");
         dateAndUserName.classList.add("text-sm", "text-blue-400");
@@ -427,6 +457,81 @@ const UIManager = {
         msgContainer.appendChild(msgGroup);
         msgContainer.appendChild(userIconContainer);
         return msgContainer;
+    },
+    showMessageActions: function (msg, msgElem) {
+        // Supprime d'abord toute autre barre
+        const existing = document.getElementById("message-action-bar");
+        if (existing) existing.remove();
+
+        const actionBar = document.createElement("div");
+        actionBar.id = "message-action-bar";
+        actionBar.className = "flex gap-2 p-1 rounded bg-gray-800 border border-gray-600 z-50";
+        actionBar.style.position = "absolute";
+
+        const emojis = ["👍", "😂", "❤️", "😮", "😢"];
+        emojis.forEach(emoji => {
+            const btn = document.createElement("button");
+            btn.className = "text-xl hover:scale-110 transition-transform";
+            btn.textContent = emoji;
+            btn.onclick = () => {
+                alert(`(🔧TODO) Réaction "${emoji}" envoyée sur le message : ${msg.ts}`);
+                actionBar.remove();
+            };
+            actionBar.appendChild(btn);
+        });
+
+        const replyBtn = document.createElement("button");
+        replyBtn.className = "text-sm text-blue-400 hover:underline ml-2";
+        replyBtn.innerHTML = '<i class="fa-solid fa-reply"></i>';
+        replyBtn.onclick = () => {
+            const preview = document.getElementById("reply-preview");
+            const contentElem = document.getElementById("reply-preview-content");
+
+            const content = FromB64ToUtf8(msg.text);
+            contentElem.textContent = content.slice(0, 100) + (content.length > 100 ? "…" : "");
+            preview.setAttribute("data-msg-id", msg.ts); // ou msg.id si présent
+            preview.classList.remove("hidden");
+
+            document.getElementById("chat-input").focus();
+
+            // Scroll + highlight optionnel
+            const allMessages = document.querySelectorAll("#message-list > div");
+            allMessages.forEach(div => {
+                if (div.dataset && div.dataset.ts == msg.ts) {
+                    div.scrollIntoView({ behavior: "smooth", block: "center" });
+                    div.classList.add("ring", "ring-blue-500");
+                    setTimeout(() => div.classList.remove("ring", "ring-blue-500"), 2000);
+                }
+            });
+
+            actionBar.remove();
+        };
+        actionBar.appendChild(replyBtn);
+
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "text-sm text-blue-400 hover:underline ml-2";
+        copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i>';
+        copyBtn.onclick = () => {
+            navigator.clipboard.writeText(FromB64ToUtf8(msg.text))
+            copyBtn.innerHTML = '<i class="fas fa-check"></i>'
+            setTimeout(() => {
+                copyBtn.innerHTML = '<i class="fa-solid fa-copy"></i>';
+                actionBar.remove();
+            }, 2000)
+
+        };
+        actionBar.appendChild(copyBtn);
+
+        // Positionnement dynamique
+        const rect = msgElem.getBoundingClientRect();
+        const containerRect = document.getElementById("message-list").getBoundingClientRect();
+        const top = rect.bottom - containerRect.top + window.scrollY;
+        const left = rect.left - containerRect.left + window.scrollX;
+
+        actionBar.style.top = `${top - 50}px`;
+        actionBar.style.left = `${left}px`;
+
+        document.getElementById("message-list").appendChild(actionBar);
     },
     confirmDeleteThread: function () {
         const threadID = editChannelState.id;
@@ -511,69 +616,83 @@ const UIManager = {
         }
     },
 };
-
 function sendFile(file) {
     return new Promise((resolve, reject) => {
         const mimeType = file.type;
-
         function generateSHA256(file) {
             return new Promise((resolve, reject) => {
-                file.arrayBuffer().then((arrayBuffer) => {
-                    return crypto.subtle.digest("SHA-256", arrayBuffer);
-                }).then((hashBuffer) => {
-                    const hashArray = Array.from(new Uint8Array(hashBuffer));
-                    const hash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-                    resolve(hash);
-                }).catch((error) => {
-                    console.error("Erreur lors de la génération du SHA-256 :", error);
-                    reject(error);
-                });
+                file
+                    .arrayBuffer()
+                    .then((arrayBuffer) => {
+                        return crypto.subtle.digest("SHA-256", arrayBuffer);
+                    })
+                    .then((hashBuffer) => {
+                        const hashArray = Array.from(new Uint8Array(hashBuffer));
+                        const hash = hashArray
+                            .map((b) => b.toString(16).padStart(2, "0"))
+                            .join("");
+                        resolve(hash);
+                    })
+                    .catch((error) => {
+                        console.error("Erreur lors de la génération du SHA-256 :", error);
+                        reject(error);
+                    });
             });
         }
         generateSHA256(file).then((hash) => {
             const payload = {
-                'hash': hash,
-                'fileName': ("user/Documents/Pictures/" + file.name),
-                'keyID': null
+                hash: hash,
+                fileName: "user/Documents/Pictures/" + file.name,
+                keyID: null,
             };
             const b64Payload = btoa(JSON.stringify(payload));
-            eventManager.signWithoutGas(MessageAPI.userAddress, b64Payload, 0).then((signedTx) => {
-                const tx = {
-                    'UUID': signedTx.UUID,
-                    'sender_public_key': signedTx.sender_public_key,
-                    'signature': signedTx.signature,
-                    'sender_blockchain_address': signedTx.sender_blockchain_address,
-                    'recipient_blockchain_address': signedTx.recipient_blockchain_address,
-                    'value': signedTx.value,
-                    'data': signedTx.data
-                };
-
-                const formData = new FormData();
-                formData.append("userTransaction", btoa(JSON.stringify(tx)));
-                formData.append("file", file);
-                formData.append("mimeType", mimeType);
-                fetch("/ipfs/upload", {
-                    'method': "POST",
-                    'body': formData
-                }).then((response) => response.json()).then((data) => {
-                    resolve(data);
-                }).catch((error) => {
-                    reject(error);
+            eventManager
+                .signWithoutGas(MessageAPI.userAddress, b64Payload, 0)
+                .then((signedTx) => {
+                    const tx = {
+                        UUID: signedTx.UUID,
+                        sender_public_key: signedTx.sender_public_key,
+                        signature: signedTx.signature,
+                        sender_blockchain_address: signedTx.sender_blockchain_address,
+                        recipient_blockchain_address: signedTx.recipient_blockchain_address,
+                        value: signedTx.value,
+                        data: signedTx.data,
+                    };
+                    const formData = new FormData();
+                    formData.append("userTransaction", btoa(JSON.stringify(tx)));
+                    formData.append("file", file);
+                    formData.append("mimeType", mimeType);
+                    fetch("/ipfs/upload", { method: "POST", body: formData })
+                        .then((response) => response.json())
+                        .then((data) => {
+                            resolve(data);
+                        })
+                        .catch((error) => {
+                            reject(error);
+                        });
                 });
-            })
         });
     });
 }
-
 function addUserProfilePicture(profilePictureURL) {
     return new Promise((resolve, reject) => {
         Wormhole.getUserProfile(MessageAPI.userAddress).then((userProfileRoot) => {
-            const action = Blackhole.Actions.makeUpdate(userProfileRoot.graphID, userProfileRoot.object.id, "profilePictureURL", profilePictureURL);
-            eventManager.sign(MessageAPI.userAddress, action, 0).then((signedTx) => {
-                Singularity.saveSignedTx(signedTx).then((tx) => {
-                    Singularity.waitForTx(tx.UUID).then(resolve).catch(reject)
-                }).catch(reject)
-            }).catch(reject);
-        })
+            const action = Blackhole.Actions.makeUpdate(
+                userProfileRoot.graphID,
+                userProfileRoot.object.id,
+                "profilePictureURL",
+                profilePictureURL
+            );
+            eventManager
+                .sign(MessageAPI.userAddress, action, 0)
+                .then((signedTx) => {
+                    Singularity.saveSignedTx(signedTx)
+                        .then((tx) => {
+                            Singularity.waitForTx(tx.UUID).then(resolve).catch(reject);
+                        })
+                        .catch(reject);
+                })
+                .catch(reject);
+        });
     });
 }

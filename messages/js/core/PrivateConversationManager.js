@@ -87,40 +87,29 @@ const PrivateConversationManager = {
     },
     loadPrivateConversationFromContext: function (graphID, showLoader = true) {
         return new Promise((resolve, reject) => {
-
-            const entry = dAppContext.messages[graphID]
-            const graph = entry.graph
-            const convName = entry.name
-
+            const entry = dAppContext.messages[graphID];
+            const graph = entry.graph;
+            const convName = entry.name;
             document.getElementById(
                 "channel-title"
             ).innerHTML = `<span title="La conversation est chiffrée"><i class="fa-solid fa-lock-keyhole"></i></span> ${convName}`;
-
             document.getElementById("config-channel").classList.add("hidden");
-
             const participants = graph.object["participants"] || "";
-            MessageAPI.loadUsers(participants)
-                .then((users) => {
-                    if(showLoader){
-                        Utils.hideGlobalLoading();
-                    }
-                    resolve();
-
-                    const messages = entry.messages.sort((a, b) => a.ts - b.ts)
-                    UIManager.showMessages(
-                        messages,
-                        users,
-                        dAppContext.userAddress
-                    );
-                })
-        })
+            MessageAPI.loadUsers(participants).then((users) => {
+                if (showLoader) {
+                    Utils.hideGlobalLoading();
+                }
+                resolve();
+                const messages = entry.messages.sort((a, b) => a.ts - b.ts);
+                UIManager.showMessages(messages, users, dAppContext.userAddress);
+            });
+        });
     },
     loadPrivateConversation: function (graphID, graph, showLoader = true) {
         return new Promise((resolve, reject) => {
-            if(showLoader){
+            if (showLoader) {
                 Utils.showGlobalLoading("Déchiffrement des messages...");
             }
-
             console.log("start to load private conversation");
             const convName = convertHtmlCodesToAccents(graph.object.graphName);
             UIManager.currentGroupGraphID = graphID;
@@ -132,16 +121,12 @@ const PrivateConversationManager = {
             MessageAPI.loadUsers(participants)
                 .then((users) => {
                     MessageAPI.getMessages(graph.object.id).then((messages) => {
-                        if(showLoader){
+                        if (showLoader) {
                             Utils.hideGlobalLoading();
                         }
                         resolve();
-                        messages = messages.sort((a, b) => a.ts - b.ts)
-                        UIManager.showMessages(
-                            messages,
-                            users,
-                            MessageAPI.userAddress
-                        );
+                        messages = messages.sort((a, b) => a.ts - b.ts);
+                        UIManager.showMessages(messages, users, MessageAPI.userAddress);
                     });
                 })
                 .catch(reject);

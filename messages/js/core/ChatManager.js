@@ -1,15 +1,21 @@
 const ChatManager = {
     createThread: function () {
-        console.log("current group graph id: ", UIManager.currentGroupGraphID);
         MessageAPI.createThread(UIManager.currentGroupGraphID);
     },
     sendMessage: function () {
         const input = document.getElementById("chat-input");
         const content = input.value.trim();
-        console.log("current content: ", content);
         const currentThread = localStorage.getItem("selectedThread");
         if (!content) return;
-        console.log("currentThread: ", currentThread);
+
+        const replyPreview = document.getElementById("reply-preview");
+        const replyToMsgID = replyPreview && !replyPreview.classList.contains("hidden")
+            ? replyPreview.getAttribute("data-msg-id")
+            : null;
+
+        console.log("Message à envoyer :", content);
+        console.log("Réponse à :", replyToMsgID);
+
         MessageAPI.postMessage(currentThread, content).then(() => {
             input.value = "";
             const currentUser = MessageAPI.getCurrentUser();
